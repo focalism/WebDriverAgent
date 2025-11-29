@@ -1,3 +1,9 @@
+## [10.2.3](https://github.com/appium/WebDriverAgent/compare/v10.2.2...v10.2.3) (2025-11-29)
+
+### Bug Fixes
+
+* fix type and mark deprecated as no usage for unused xcodeVersion and deprecated idb ([#1072](https://github.com/appium/WebDriverAgent/issues/1072)) ([4499fb2](https://github.com/appium/WebDriverAgent/commit/4499fb22ae4884df84e5e2d2bd0570c90ee4848b))
+
 ## [10.2.2](https://github.com/appium/WebDriverAgent/compare/v10.2.1...v10.2.2) (2025-11-15)
 
 ### Miscellaneous Chores
