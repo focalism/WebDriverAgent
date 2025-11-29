@@ -1,3 +1,9 @@
+## [10.2.5](https://github.com/appium/WebDriverAgent/compare/v10.2.4...v10.2.5) (2025-11-29)
+
+### Miscellaneous Chores
+
+* **deps:** bump actions/checkout from 4 to 6 ([#1076](https://github.com/appium/WebDriverAgent/issues/1076)) ([276be79](https://github.com/appium/WebDriverAgent/commit/276be795ad36ea4d3beddff47b0ed3aa2c1f9461))
+
 ## [10.2.4](https://github.com/appium/WebDriverAgent/compare/v10.2.3...v10.2.4) (2025-11-29)
 
 ### Miscellaneous Chores
