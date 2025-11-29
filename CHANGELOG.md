@@ -1,3 +1,10 @@
+## [10.2.4](https://github.com/appium/WebDriverAgent/compare/v10.2.3...v10.2.4) (2025-11-29)
+
+### Miscellaneous Chores
+
+* Deprecate idb ([#1073](https://github.com/appium/WebDriverAgent/issues/1073)) ([260bc31](https://github.com/appium/WebDriverAgent/commit/260bc319795aff26468eca261d5f286b31216270))
+* **deps:** bump appium-ios-simulator from 7.0.3 to 8.0.0 ([#1070](https://github.com/appium/WebDriverAgent/issues/1070)) ([7cb4b6e](https://github.com/appium/WebDriverAgent/commit/7cb4b6ecd37717c7aad214f8e387c404d4937534))
+
 ## [10.2.3](https://github.com/appium/WebDriverAgent/compare/v10.2.2...v10.2.3) (2025-11-29)
 
 ### Bug Fixes
