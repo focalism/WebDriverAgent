@@ -1,3 +1,9 @@
+## [10.2.6](https://github.com/appium/WebDriverAgent/compare/v10.2.5...v10.2.6) (2025-12-02)
+
+### Miscellaneous Chores
+
+* **deps:** bump actions/setup-node from 4 to 6 ([#1075](https://github.com/appium/WebDriverAgent/issues/1075)) ([5042063](https://github.com/appium/WebDriverAgent/commit/504206338a1d7038f1d95ef241006997c5512757))
+
 ## [10.2.5](https://github.com/appium/WebDriverAgent/compare/v10.2.4...v10.2.5) (2025-11-29)
 
 ### Miscellaneous Chores
