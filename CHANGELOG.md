@@ -1,3 +1,9 @@
+## [10.3.0](https://github.com/appium/WebDriverAgent/compare/v10.2.7...v10.3.0) (2025-12-03)
+
+### Features
+
+* Deprecate CFNetwork usage ([#1078](https://github.com/appium/WebDriverAgent/issues/1078)) ([6df0c5f](https://github.com/appium/WebDriverAgent/commit/6df0c5fb442879a1af115f02ac79055a7ed76719))
+
 ## [10.2.7](https://github.com/appium/WebDriverAgent/compare/v10.2.6...v10.2.7) (2025-12-03)
 
 ### Miscellaneous Chores
