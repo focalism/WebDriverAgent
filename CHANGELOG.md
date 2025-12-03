@@ -1,3 +1,9 @@
+## [10.2.7](https://github.com/appium/WebDriverAgent/compare/v10.2.6...v10.2.7) (2025-12-03)
+
+### Miscellaneous Chores
+
+* use any iphone/tvos simulator devices to build WDA for sim ([#1077](https://github.com/appium/WebDriverAgent/issues/1077)) ([9600d83](https://github.com/appium/WebDriverAgent/commit/9600d837bf35f420f71d00772fc682e3db9f257d))
+
 ## [10.2.6](https://github.com/appium/WebDriverAgent/compare/v10.2.5...v10.2.6) (2025-12-02)
 
 ### Miscellaneous Chores
