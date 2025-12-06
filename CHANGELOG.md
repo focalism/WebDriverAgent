@@ -1,3 +1,9 @@
+## [10.4.0](https://github.com/appium/WebDriverAgent/compare/v10.3.0...v10.4.0) (2025-12-06)
+
+### Features
+
+* Migrate IntegrationApp to use UIScene lifecycle ([#1079](https://github.com/appium/WebDriverAgent/issues/1079)) ([dfba786](https://github.com/appium/WebDriverAgent/commit/dfba7863195651535a498c246e7b6461eaa24f8b))
+
 ## [10.3.0](https://github.com/appium/WebDriverAgent/compare/v10.2.7...v10.3.0) (2025-12-03)
 
 ### Features
