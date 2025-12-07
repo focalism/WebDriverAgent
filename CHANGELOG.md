@@ -1,3 +1,9 @@
+## [10.4.1](https://github.com/appium/WebDriverAgent/compare/v10.4.0...v10.4.1) (2025-12-07)
+
+### Miscellaneous Chores
+
+* Ditch usage of @appium/test-support ([#1080](https://github.com/appium/WebDriverAgent/issues/1080)) ([5c7cd2e](https://github.com/appium/WebDriverAgent/commit/5c7cd2ef2dec11b00dddd7a357bdaafd6df62e73))
+
 ## [10.4.0](https://github.com/appium/WebDriverAgent/compare/v10.3.0...v10.4.0) (2025-12-06)
 
 ### Features
