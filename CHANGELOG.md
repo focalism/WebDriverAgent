@@ -1,3 +1,9 @@
+## [10.4.2](https://github.com/appium/WebDriverAgent/compare/v10.4.1...v10.4.2) (2025-12-11)
+
+### Miscellaneous Chores
+
+* **deps-dev:** bump @types/node from 24.10.3 to 25.0.0 ([#1081](https://github.com/appium/WebDriverAgent/issues/1081)) ([6157d8e](https://github.com/appium/WebDriverAgent/commit/6157d8edd12f0e40938fd38fa8473d84999ce360))
+
 ## [10.4.1](https://github.com/appium/WebDriverAgent/compare/v10.4.0...v10.4.1) (2025-12-07)
 
 ### Miscellaneous Chores
