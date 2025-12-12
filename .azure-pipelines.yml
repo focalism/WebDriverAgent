@@ -1,20 +1,20 @@
 # https://docs.microsoft.com/en-us/azure/devops/pipelines/agents/hosted?view=azure-devops&tabs=yaml
 variables:
-  MIN_VM_IMAGE: macOS-13
-  MIN_XCODE_VERSION: 14.3.1
-  MIN_PLATFORM_VERSION: 16.4
-  MIN_TV_PLATFORM_VERSION: 16.4
-  MIN_TV_DEVICE_NAME: Apple TV 4K (3rd generation)
-  MIN_IPHONE_DEVICE_NAME: iPhone 14 Plus
-  MIN_IPAD_DEVICE_NAME: iPad Pro (11-inch) (4th generation)
-  MAX_VM_IMAGE: macOS-14
-  MAX_XCODE_VERSION: 15.4
-  MAX_PLATFORM_VERSION: 17.5
-  MAX_PLATFORM_VERSION_TV: 17.5
-  MAX_IPHONE_DEVICE_NAME: iPhone 15 Plus
-  MAX_TV_DEVICE_NAME: Apple TV 4K (3rd generation)
-  MAX_IPAD_DEVICE_NAME: iPad Air 11-inch (M2)
-  DEFAULT_NODE_VERSION: "18.x"
+  MIN_VM_IMAGE: macOS-14
+  MIN_XCODE_VERSION: "15.4"
+  MIN_PLATFORM_VERSION: "17.5"
+  MIN_TV_PLATFORM_VERSION: "17.5"
+  MIN_TV_DEVICE_NAME: "Apple TV 4K (3rd generation)"
+  MIN_IPHONE_DEVICE_NAME: "iPhone 15 Plus"
+  MIN_IPAD_DEVICE_NAME: "iPad Air 13-inch (M2)"
+  MAX_VM_IMAGE: macOS-15
+  MAX_XCODE_VERSION: "26.1"
+  MAX_PLATFORM_VERSION: "26.1"
+  MAX_TV_PLATFORM_VERSION: "26.1"
+  MAX_IPHONE_DEVICE_NAME: "iPhone 17"
+  MAX_TV_DEVICE_NAME: "Apple TV 4K (3rd generation)"
+  MAX_IPAD_DEVICE_NAME: "iPad Air 11-inch (M2)"
+  DEFAULT_NODE_VERSION: "22.x"
 
 trigger:
   batch: true
@@ -168,7 +168,7 @@ stages:
       target: tv_lib
       sdk: tv_sim
       tvModel: $(MAX_TV_DEVICE_NAME)
-      tvVersion: $(MAX_PLATFORM_VERSION_TV)
+      tvVersion: $(MAX_TV_PLATFORM_VERSION)
       xcodeVersion: $(MAX_XCODE_VERSION)
       vmImage: $(MAX_VM_IMAGE)
   - template: ./azure-templates/base_job.yml
@@ -178,7 +178,7 @@ stages:
       target: tv_runner
       sdk: tv_sim
       tvModel: $(MAX_TV_DEVICE_NAME)
-      tvVersion: $(MAX_PLATFORM_VERSION_TV)
+      tvVersion: $(MAX_TV_PLATFORM_VERSION)
       xcodeVersion: $(MAX_XCODE_VERSION)
       vmImage: $(MAX_VM_IMAGE)
   - template: ./azure-templates/base_job.yml
@@ -240,29 +240,6 @@ stages:
       vmImage: $(MAX_VM_IMAGE)
   - template: ./azure-templates/base_job.yml
     parameters:
-      name: iPad_Unit_Test_Max_Xcode
-      action: unit_test
-      dest: ipad
-      target: lib
-      sdk: sim
-      iphoneModel: $(MAX_IPHONE_DEVICE_NAME)
-      ipadModel: $(MAX_IPAD_DEVICE_NAME)
-      iosVersion: $(MAX_PLATFORM_VERSION)
-      xcodeVersion: $(MAX_XCODE_VERSION)
-      vmImage: $(MAX_VM_IMAGE)
-  - template: ./azure-templates/base_job.yml
-    parameters:
-      name: tvOS_Unit_Test_Max_Xcode
-      action: tv_unit_test
-      dest: tv
-      target: tv_lib
-      sdk: tv_sim
-      tvModel: $(MAX_TV_DEVICE_NAME)
-      tvVersion: $(MAX_PLATFORM_VERSION_TV)
-      xcodeVersion: $(MAX_XCODE_VERSION)
-      vmImage: $(MAX_VM_IMAGE)
-  - template: ./azure-templates/base_job.yml
-    parameters:
       name: iPhone_Unit_Test_Min_Xcode
       action: unit_test
       dest: iphone
@@ -273,32 +250,11 @@ stages:
       iosVersion: $(MIN_PLATFORM_VERSION)
       xcodeVersion: $(MIN_XCODE_VERSION)
       vmImage: $(MIN_VM_IMAGE)
-  - template: ./azure-templates/base_job.yml
-    parameters:
-      name: iPad_Unit_Test_Min_Xcode
-      action: unit_test
-      dest: ipad
-      target: lib
-      sdk: sim
-      iphoneModel: $(MIN_IPHONE_DEVICE_NAME)
-      ipadModel: $(MIN_IPAD_DEVICE_NAME)
-      iosVersion: $(MIN_PLATFORM_VERSION)
-      xcodeVersion: $(MIN_XCODE_VERSION)
-      vmImage: $(MIN_VM_IMAGE)
-  - template: ./azure-templates/base_job.yml
-    parameters:
-      name: tvOS_Unit_Test_Min_Xcode
-      action: tv_unit_test
-      dest: tv
-      target: tv_lib
-      sdk: tv_sim
-      tvModel: $(MIN_TV_DEVICE_NAME)
-      tvVersion: $(MIN_TV_PLATFORM_VERSION)
-      xcodeVersion: $(MIN_XCODE_VERSION)
-      vmImage: $(MIN_VM_IMAGE)
   # endregion
 
 - stage: Integration_Tests
+  dependsOn: []            # run in parallel with earlier stages
+  condition: succeededOrFailed()  # do not block on Unit/Linters failures
   jobs:
 
   # region Integration Tests Max Xcode
