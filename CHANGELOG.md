@@ -1,3 +1,9 @@
+## [10.4.3](https://github.com/appium/WebDriverAgent/compare/v10.4.2...v10.4.3) (2025-12-12)
+
+### Miscellaneous Chores
+
+* Bump Xcode platform versions for Azure tests ([#1082](https://github.com/appium/WebDriverAgent/issues/1082)) ([c698bd5](https://github.com/appium/WebDriverAgent/commit/c698bd5bef3009a83e0c48a39d53e84ac336fb72))
+
 ## [10.4.2](https://github.com/appium/WebDriverAgent/compare/v10.4.1...v10.4.2) (2025-12-11)
 
 ### Miscellaneous Chores
