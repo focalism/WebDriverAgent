@@ -1,3 +1,9 @@
+## [10.4.5](https://github.com/appium/WebDriverAgent/compare/v10.4.4...v10.4.5) (2025-12-13)
+
+### Miscellaneous Chores
+
+* **deps:** remove source-map-support ([#1084](https://github.com/appium/WebDriverAgent/issues/1084)) ([a803089](https://github.com/appium/WebDriverAgent/commit/a8030894f38eed327c90e10c92ac0fbf0dab8239))
+
 ## [10.4.4](https://github.com/appium/WebDriverAgent/compare/v10.4.3...v10.4.4) (2025-12-13)
 
 ### Miscellaneous Chores
