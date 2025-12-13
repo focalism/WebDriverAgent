@@ -1,3 +1,9 @@
+## [10.4.4](https://github.com/appium/WebDriverAgent/compare/v10.4.3...v10.4.4) (2025-12-13)
+
+### Miscellaneous Chores
+
+* Migrate tests to typescript ([#1083](https://github.com/appium/WebDriverAgent/issues/1083)) ([6ac993e](https://github.com/appium/WebDriverAgent/commit/6ac993e29ab02a71f5aac5354bc8408110f3fe6d))
+
 ## [10.4.3](https://github.com/appium/WebDriverAgent/compare/v10.4.2...v10.4.3) (2025-12-12)
 
 ### Miscellaneous Chores
