@@ -1,3 +1,9 @@
+## [10.5.1](https://github.com/appium/WebDriverAgent/compare/v10.5.0...v10.5.1) (2025-12-18)
+
+### Miscellaneous Chores
+
+* **deps:** bump asyncbox from 3.0.0 to 4.0.1 ([#1090](https://github.com/appium/WebDriverAgent/issues/1090)) ([92228ba](https://github.com/appium/WebDriverAgent/commit/92228ba2f1a75e4d7f7bba67e5dac1c625a27efe))
+
 ## [10.5.0](https://github.com/appium/WebDriverAgent/compare/v10.4.5...v10.5.0) (2025-12-18)
 
 ### Features
