@@ -1,3 +1,9 @@
+## [10.5.2](https://github.com/appium/WebDriverAgent/compare/v10.5.1...v10.5.2) (2025-12-18)
+
+### Bug Fixes
+
+* Address possible NULL binding compiler warning ([#1091](https://github.com/appium/WebDriverAgent/issues/1091)) ([263e646](https://github.com/appium/WebDriverAgent/commit/263e646dcbfe95a16c30821f2f8fe1cf7e1a0cce))
+
 ## [10.5.1](https://github.com/appium/WebDriverAgent/compare/v10.5.0...v10.5.1) (2025-12-18)
 
 ### Miscellaneous Chores
