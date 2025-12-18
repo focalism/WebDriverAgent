@@ -1,3 +1,9 @@
+## [10.5.0](https://github.com/appium/WebDriverAgent/compare/v10.4.5...v10.5.0) (2025-12-18)
+
+### Features
+
+* Add `enforceCustomSnapshots` setting ([#1087](https://github.com/appium/WebDriverAgent/issues/1087)) ([33d780a](https://github.com/appium/WebDriverAgent/commit/33d780a4b7b47f0587b25983d4e0eb3738975904))
+
 ## [10.4.5](https://github.com/appium/WebDriverAgent/compare/v10.4.4...v10.4.5) (2025-12-13)
 
 ### Miscellaneous Chores
