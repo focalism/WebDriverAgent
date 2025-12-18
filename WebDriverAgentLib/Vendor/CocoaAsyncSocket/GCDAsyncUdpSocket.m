@@ -2883,7 +2883,7 @@ enum GCDAsyncUdpSocketConfig
 
 		// Create the socket(s) if needed
 
-        if ((self->flags & kDidCreateSockets) == 0)
+		if ((self->flags & kDidCreateSockets) == 0)
 		{
 			if (![self createSocket4:useIPv4 socket6:useIPv6 error:&err])
 			{
@@ -2897,7 +2897,7 @@ enum GCDAsyncUdpSocketConfig
 
 		if (useIPv4)
 		{
-            int status = bind(self->socket4FD, (const struct sockaddr *)[interface4 bytes], (socklen_t)[interface4 length]);
+			int status = bind(self->socket4FD, (const struct sockaddr *)[interface4 bytes], (socklen_t)[interface4 length]);
 			if (status == -1)
 			{
 				[self closeSockets];
@@ -2911,7 +2911,7 @@ enum GCDAsyncUdpSocketConfig
 
 		if (useIPv6)
 		{
-            int status = bind(self->socket6FD, (const struct sockaddr *)[interface6 bytes], (socklen_t)[interface6 length]);
+			int status = bind(self->socket6FD, (const struct sockaddr *)[interface6 bytes], (socklen_t)[interface6 length]);
 			if (status == -1)
 			{
 				[self closeSockets];
@@ -2925,10 +2925,10 @@ enum GCDAsyncUdpSocketConfig
 
 		// Update flags
 
-        self->flags |= kDidBind;
+		self->flags |= kDidBind;
 
-        if (!useIPv4) self->flags |= kIPv4Deactivated;
-        if (!useIPv6) self->flags |= kIPv6Deactivated;
+		if (!useIPv4) self->flags |= kIPv4Deactivated;
+		if (!useIPv6) self->flags |= kIPv6Deactivated;
 
 		result = YES;
 
@@ -3003,7 +3003,7 @@ enum GCDAsyncUdpSocketConfig
 
 		// Create the socket(s) if needed
 
-        if ((self->flags & kDidCreateSockets) == 0)
+		if ((self->flags & kDidCreateSockets) == 0)
 		{
 			if (![self createSocket4:useIPv4 socket6:useIPv6 error:&err])
 			{
@@ -3013,30 +3013,28 @@ enum GCDAsyncUdpSocketConfig
 
 		// Bind the socket(s)
 
-		if (useIPv4)
+		if (useIPv4 || useIPv6)
 		{
-			LogVerbose(@"Binding socket to address(%@:%hu)",
-					   [[self class] hostFromAddress:localAddr4],
-					   [[self class] portFromAddress:localAddr4]);
+			NSData *addressData = useIPv4 ? localAddr4 : localAddr6;
+			int socketFD = useIPv4 ? self->socket4FD : self->socket6FD;
+			NSString *protocol = useIPv4 ? @"IPv4" : @"IPv6";
 
-            int status = bind(self->socket4FD, (const struct sockaddr *)[localAddr4 bytes], (socklen_t)[localAddr4 length]);
-			if (status == -1)
+			LogVerbose(@"Binding socket to address(%@:%hu)",
+					   [[self class] hostFromAddress:addressData],
+					   [[self class] portFromAddress:addressData]);
+
+			const struct sockaddr *addr = (const struct sockaddr *)[addressData bytes];
+			if (addr == NULL)
 			{
 				[self closeSockets];
 
-				NSString *reason = @"Error in bind() function";
-				err = [self errnoErrorWithReason:reason];
+				NSString *reason = [NSString stringWithFormat:@"Invalid address data for %@ bind", protocol];
+				err = [self badParamError:reason];
 
 				return_from_block;
 			}
-		}
-		else
-		{
-			LogVerbose(@"Binding socket to address(%@:%hu)",
-					   [[self class] hostFromAddress:localAddr6],
-					   [[self class] portFromAddress:localAddr6]);
 
-            int status = bind(self->socket6FD, (const struct sockaddr *)[localAddr6 bytes], (socklen_t)[localAddr6 length]);
+			int status = bind(socketFD, addr, (socklen_t)[addressData length]);
 			if (status == -1)
 			{
 				[self closeSockets];
@@ -3050,10 +3048,10 @@ enum GCDAsyncUdpSocketConfig
 
 		// Update flags
 
-        self->flags |= kDidBind;
+		self->flags |= kDidBind;
 
-        if (!useIPv4) self->flags |= kIPv4Deactivated;
-        if (!useIPv6) self->flags |= kIPv6Deactivated;
+		if (!useIPv4) self->flags |= kIPv4Deactivated;
+		if (!useIPv6) self->flags |= kIPv6Deactivated;
 
 		result = YES;
 
@@ -3140,7 +3138,7 @@ enum GCDAsyncUdpSocketConfig
 
 		// Create the socket(s) if needed
 
-        if ((self->flags & kDidCreateSockets) == 0)
+		if ((self->flags & kDidCreateSockets) == 0)
 		{
 			if (![self createSockets:&err])
 			{
@@ -3173,9 +3171,9 @@ enum GCDAsyncUdpSocketConfig
 
 		// Updates flags, add connect packet to send queue, and pump send queue
 
-        self->flags |= kConnecting;
+		self->flags |= kConnecting;
 
-        [self->sendQueue addObject:packet];
+		[self->sendQueue addObject:packet];
 		[self maybeDequeueSend];
 
 		result = YES;
@@ -3221,7 +3219,7 @@ enum GCDAsyncUdpSocketConfig
 
 		// Create the socket(s) if needed
 
-        if ((self->flags & kDidCreateSockets) == 0)
+		if ((self->flags & kDidCreateSockets) == 0)
 		{
 			if (![self createSockets:&err])
 			{
@@ -3240,9 +3238,9 @@ enum GCDAsyncUdpSocketConfig
 
 		// Updates flags, add connect packet to send queue, and pump send queue
 
-        self->flags |= kConnecting;
+		self->flags |= kConnecting;
 
-        [self->sendQueue addObject:packet];
+		[self->sendQueue addObject:packet];
 		[self maybeDequeueSend];
 
 		result = YES;
@@ -3473,7 +3471,7 @@ enum GCDAsyncUdpSocketConfig
 
 		// Perform join
 
-        if ((self->socket4FD != SOCKET_NULL) && groupAddr4 && interfaceAddr4)
+    if ((self->socket4FD != SOCKET_NULL) && groupAddr4 && interfaceAddr4)
 		{
 			const struct sockaddr_in *nativeGroup = (const struct sockaddr_in *)[groupAddr4 bytes];
 			const struct sockaddr_in *nativeIface = (const struct sockaddr_in *)[interfaceAddr4 bytes];
@@ -3495,7 +3493,7 @@ enum GCDAsyncUdpSocketConfig
 
 			result = YES;
 		}
-        else if ((self->socket6FD != SOCKET_NULL) && groupAddr6 && interfaceAddr6)
+    else if ((self->socket6FD != SOCKET_NULL) && groupAddr6 && interfaceAddr6)
 		{
 			const struct sockaddr_in6 *nativeGroup = (const struct sockaddr_in6 *)[groupAddr6 bytes];
 
@@ -3549,7 +3547,7 @@ enum GCDAsyncUdpSocketConfig
             return_from_block;
         }
 
-        if ((self->flags & kDidCreateSockets) == 0)
+				if ((self->flags & kDidCreateSockets) == 0)
         {
             if (![self createSockets:&err])
             {
@@ -3582,7 +3580,7 @@ enum GCDAsyncUdpSocketConfig
           }
         }
 
-     }};
+		}};
 
     if (dispatch_get_specific(IsOnSocketQueueOrTargetQueueKey))
         block();
@@ -3637,9 +3635,9 @@ enum GCDAsyncUdpSocketConfig
                 return_from_block;
             }
             result = YES;
-       }
+				}
 
-     }};
+		}};
 
     if (dispatch_get_specific(IsOnSocketQueueOrTargetQueueKey))
         block();
@@ -3668,7 +3666,7 @@ enum GCDAsyncUdpSocketConfig
 			return_from_block;
 		}
 
-        if ((self->flags & kDidCreateSockets) == 0)
+		if ((self->flags & kDidCreateSockets) == 0)
 		{
 			if (![self createSockets:&err])
 			{
@@ -3677,9 +3675,9 @@ enum GCDAsyncUdpSocketConfig
 		}
 
 		int value = flag ? 1 : 0;
-        if (self->socket4FD != SOCKET_NULL)
+    if (self->socket4FD != SOCKET_NULL)
 		{
-            int error = setsockopt(self->socket4FD, SOL_SOCKET, SO_REUSEPORT, (const void *)&value, sizeof(value));
+      int error = setsockopt(self->socket4FD, SOL_SOCKET, SO_REUSEPORT, (const void *)&value, sizeof(value));
 
 			if (error)
 			{
@@ -3690,9 +3688,9 @@ enum GCDAsyncUdpSocketConfig
 			result = YES;
 		}
 
-        if (self->socket6FD != SOCKET_NULL)
+		if (self->socket6FD != SOCKET_NULL)
 		{
-            int error = setsockopt(self->socket6FD, SOL_SOCKET, SO_REUSEPORT, (const void *)&value, sizeof(value));
+      int error = setsockopt(self->socket6FD, SOL_SOCKET, SO_REUSEPORT, (const void *)&value, sizeof(value));
 
 			if (error)
 			{
@@ -3732,7 +3730,7 @@ enum GCDAsyncUdpSocketConfig
 			return_from_block;
 		}
 
-        if ((self->flags & kDidCreateSockets) == 0)
+		if ((self->flags & kDidCreateSockets) == 0)
 		{
 			if (![self createSockets:&err])
 			{
@@ -3740,10 +3738,10 @@ enum GCDAsyncUdpSocketConfig
 			}
 		}
 
-        if (self->socket4FD != SOCKET_NULL)
+		if (self->socket4FD != SOCKET_NULL)
 		{
 			int value = flag ? 1 : 0;
-            int error = setsockopt(self->socket4FD, SOL_SOCKET, SO_BROADCAST, (const void *)&value, sizeof(value));
+      int error = setsockopt(self->socket4FD, SOL_SOCKET, SO_BROADCAST, (const void *)&value, sizeof(value));
 
 			if (error)
 			{
