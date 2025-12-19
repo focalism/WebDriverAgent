@@ -1,3 +1,9 @@
+## [10.5.3](https://github.com/appium/WebDriverAgent/compare/v10.5.2...v10.5.3) (2025-12-19)
+
+### Miscellaneous Chores
+
+* **ci:** Fix collection of release artifacts ([#1094](https://github.com/appium/WebDriverAgent/issues/1094)) ([d1bf689](https://github.com/appium/WebDriverAgent/commit/d1bf689d390c399d6f80c6a2e786e14f73157f93))
+
 ## [10.5.2](https://github.com/appium/WebDriverAgent/compare/v10.5.1...v10.5.2) (2025-12-18)
 
 ### Bug Fixes
