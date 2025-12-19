@@ -1,3 +1,9 @@
+## [10.5.4](https://github.com/appium/WebDriverAgent/compare/v10.5.3...v10.5.4) (2025-12-19)
+
+### Miscellaneous Chores
+
+* Apply format to socket helpers ([#1092](https://github.com/appium/WebDriverAgent/issues/1092)) ([ddc6313](https://github.com/appium/WebDriverAgent/commit/ddc631371350ef04ab8f49a93f1f674cab9aefde))
+
 ## [10.5.3](https://github.com/appium/WebDriverAgent/compare/v10.5.2...v10.5.3) (2025-12-19)
 
 ### Miscellaneous Chores
