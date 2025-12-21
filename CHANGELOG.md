@@ -1,3 +1,20 @@
+## [11.0.0](https://github.com/appium/WebDriverAgent/compare/v10.5.4...v11.0.0) (2025-12-21)
+
+### ⚠ BREAKING CHANGES
+
+* Removed the deprecated xcodeVersion argument from WebDriverAgent constructor
+* Removed the deprecated xcodeVersion argument from XcodeBuild constructor
+* Removed the deprecated idb property from WebDriverAgent class
+* Removed the noop checkForDependencies export from index
+
+- All .js modules were migrated to TypeScript
+- Module scripts were migrated to ESM/.mjs
+- All private WebDriverAgent and XcodeBuild methods and properties were marked as such
+
+### Features
+
+* Migrate the module to typescript ([#1096](https://github.com/appium/WebDriverAgent/issues/1096)) ([7d0a022](https://github.com/appium/WebDriverAgent/commit/7d0a022585ef70205dafe22d20736978d9e1cba3))
+
 ## [10.5.4](https://github.com/appium/WebDriverAgent/compare/v10.5.3...v10.5.4) (2025-12-19)
 
 ### Miscellaneous Chores
