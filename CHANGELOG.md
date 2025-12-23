@@ -1,3 +1,9 @@
+## [11.0.1](https://github.com/appium/WebDriverAgent/compare/v11.0.0...v11.0.1) (2025-12-23)
+
+### Miscellaneous Chores
+
+* update teen-process ([#1098](https://github.com/appium/WebDriverAgent/issues/1098)) ([a97034c](https://github.com/appium/WebDriverAgent/commit/a97034ce92007964ac9f149f97ebfc8d8f9c2d21))
+
 ## [11.0.0](https://github.com/appium/WebDriverAgent/compare/v10.5.4...v11.0.0) (2025-12-21)
 
 ### ⚠ BREAKING CHANGES
