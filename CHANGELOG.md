@@ -1,3 +1,10 @@
+## [11.0.2](https://github.com/appium/WebDriverAgent/compare/v11.0.1...v11.0.2) (2025-12-25)
+
+### Miscellaneous Chores
+
+* **deps:** bump actions/download-artifact from 4 to 7 ([#1100](https://github.com/appium/WebDriverAgent/issues/1100)) ([6098b67](https://github.com/appium/WebDriverAgent/commit/6098b67796a83448ce0223b70055bff718cb80fe))
+* **deps:** bump actions/upload-artifact from 4 to 6 ([#1099](https://github.com/appium/WebDriverAgent/issues/1099)) ([e7b69ec](https://github.com/appium/WebDriverAgent/commit/e7b69ec3518600f44d6ab86f1547e4ccfac5207f))
+
 ## [11.0.1](https://github.com/appium/WebDriverAgent/compare/v11.0.0...v11.0.1) (2025-12-23)
 
 ### Miscellaneous Chores
