@@ -1,3 +1,9 @@
+## [11.1.0](https://github.com/appium/WebDriverAgent/compare/v11.0.2...v11.1.0) (2025-12-28)
+
+### Features
+
+* expose customActions on the element ([#1095](https://github.com/appium/WebDriverAgent/issues/1095)) ([3028512](https://github.com/appium/WebDriverAgent/commit/302851237297ee31965c55a75436ad0aea2a8c8f))
+
 ## [11.0.2](https://github.com/appium/WebDriverAgent/compare/v11.0.1...v11.0.2) (2025-12-25)
 
 ### Miscellaneous Chores
