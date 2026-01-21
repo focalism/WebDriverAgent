@@ -1,3 +1,9 @@
+## [11.1.1](https://github.com/appium/WebDriverAgent/compare/v11.1.0...v11.1.1) (2026-01-21)
+
+### Bug Fixes
+
+* Avoid modifying WDA sources ([#1101](https://github.com/appium/WebDriverAgent/issues/1101)) ([5f2a00f](https://github.com/appium/WebDriverAgent/commit/5f2a00faa38fac524a8eb229df500cdf6140bc2d))
+
 ## [11.1.0](https://github.com/appium/WebDriverAgent/compare/v11.0.2...v11.1.0) (2025-12-28)
 
 ### Features
