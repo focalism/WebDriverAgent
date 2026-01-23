@@ -1,3 +1,9 @@
+## [11.1.2](https://github.com/appium/WebDriverAgent/compare/v11.1.1...v11.1.2) (2026-01-23)
+
+### Miscellaneous Chores
+
+* Exclude tests from published dist ([cc29734](https://github.com/appium/WebDriverAgent/commit/cc2973486d4c09835ef6317a10554d8fb2e094be))
+
 ## [11.1.1](https://github.com/appium/WebDriverAgent/compare/v11.1.0...v11.1.1) (2026-01-21)
 
 ### Bug Fixes
