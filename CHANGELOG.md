@@ -1,3 +1,9 @@
+## [11.1.3](https://github.com/appium/WebDriverAgent/compare/v11.1.2...v11.1.3) (2026-01-28)
+
+### Miscellaneous Chores
+
+* **deps-dev:** bump @appium/eslint-config-appium-ts from 2.0.5 to 3.0.0 ([#1107](https://github.com/appium/WebDriverAgent/issues/1107)) ([41f3eae](https://github.com/appium/WebDriverAgent/commit/41f3eaeaf1380d5d4ab60ef66d125dd745354d5d))
+
 ## [11.1.2](https://github.com/appium/WebDriverAgent/compare/v11.1.1...v11.1.2) (2026-01-23)
 
 ### Miscellaneous Chores
