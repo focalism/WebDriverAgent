@@ -1,3 +1,9 @@
+## [11.1.4](https://github.com/appium/WebDriverAgent/compare/v11.1.3...v11.1.4) (2026-02-01)
+
+### Miscellaneous Chores
+
+* **deps:** bump asyncbox from 4.1.1 to 6.1.0 ([#1109](https://github.com/appium/WebDriverAgent/issues/1109)) ([eb0ef79](https://github.com/appium/WebDriverAgent/commit/eb0ef7919fb80e42db287ef8fc476b921167bfd8))
+
 ## [11.1.3](https://github.com/appium/WebDriverAgent/compare/v11.1.2...v11.1.3) (2026-01-28)
 
 ### Miscellaneous Chores
