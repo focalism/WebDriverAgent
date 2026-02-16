@@ -1,3 +1,9 @@
+## [11.1.5](https://github.com/appium/WebDriverAgent/compare/v11.1.4...v11.1.5) (2026-02-16)
+
+### Bug Fixes
+
+* format ([#1111](https://github.com/appium/WebDriverAgent/issues/1111)) ([f099df1](https://github.com/appium/WebDriverAgent/commit/f099df154676c71d4a696c5cdfad1ae336a4f750))
+
 ## [11.1.4](https://github.com/appium/WebDriverAgent/compare/v11.1.3...v11.1.4) (2026-02-01)
 
 ### Miscellaneous Chores
