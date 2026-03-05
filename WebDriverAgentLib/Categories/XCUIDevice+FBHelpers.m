@@ -26,40 +26,65 @@
 static const NSTimeInterval FBHomeButtonCoolOffTime = 1.;
 static const NSTimeInterval FBScreenLockTimeout = 5.;
 
-NSDictionary<NSString *, NSNumber *> *availableButtonNames(void) {
+#if TARGET_OS_TV
+NSDictionary<NSString *, NSNumber *> *fb_availableButtonNames(void) {
   static dispatch_once_t onceToken;
   static NSDictionary *result;
   dispatch_once(&onceToken, ^{
     NSMutableDictionary *buttons = [NSMutableDictionary dictionary];
-    
-    // Home button is always available
-    buttons[@"home"] = @(XCUIDeviceButtonHome);
-    
-#if !TARGET_OS_TV
-#if !TARGET_OS_SIMULATOR
-    buttons[@"volumeup"] = @(XCUIDeviceButtonVolumeUp);
-    buttons[@"volumedown"] = @(XCUIDeviceButtonVolumeDown);
+    // https://developer.apple.com/design/human-interface-guidelines/remotes
+    buttons[@"up"] = @(XCUIRemoteButtonUp);                     // 0
+    buttons[@"down"] = @(XCUIRemoteButtonDown);                 // 1
+    buttons[@"left"] = @(XCUIRemoteButtonLeft);                 // 2
+    buttons[@"right"] = @(XCUIRemoteButtonRight);               // 3
+    buttons[@"select"] = @(XCUIRemoteButtonSelect);             // 4
+    buttons[@"menu"] = @(XCUIRemoteButtonMenu);                 // 5
+    buttons[@"playpause"] = @(XCUIRemoteButtonPlayPause);       // 6
+    buttons[@"home"] = @(XCUIRemoteButtonHome);                 // 7
+#if __clang_major__ >= 15 // Xcode 15+
+    buttons[@"pageup"] = @(XCUIRemoteButtonPageUp);             // 9
+    buttons[@"pagedown"] = @(XCUIRemoteButtonPageDown);         // 10
+    buttons[@"guide"] = @(XCUIRemoteButtonGuide);               // 11
 #endif
-    
-    if (@available(iOS 16.0, *)) {
-#if defined(XCUIDeviceButtonAction)
-      if ([XCUIDevice.sharedDevice hasHardwareButton:XCUIDeviceButtonAction]) {
-        buttons[@"action"] = @(XCUIDeviceButtonAction);
-      }
-#endif
-#if defined(XCUIDeviceButtonCamera)
-#if !TARGET_OS_SIMULATOR
-      if ([XCUIDevice.sharedDevice hasHardwareButton:XCUIDeviceButtonCamera]) {
-        buttons[@"camera"] = @(XCUIDeviceButtonCamera);
-      }
-#endif
-#endif
+#if __clang_major__ >= 17 // likely Xcode 16.3+
+    if (@available(tvOS 18.1, *)) {
+      buttons[@"fourcolors"] = @(XCUIRemoteButtonFourColors);   // 12
+      buttons[@"onetwothree"] = @(XCUIRemoteButtonOneTwoThree); // 13
+      buttons[@"tvprovider"] = @(XCUIRemoteButtonTVProvider);   // 14
     }
 #endif
     result = [buttons copy];
   });
   return result;
 }
+#else
+NSDictionary<NSString *, NSNumber *> *fb_availableButtonNames(void) {
+  static dispatch_once_t onceToken;
+  static NSDictionary *result;
+  dispatch_once(&onceToken, ^{
+    NSMutableDictionary *buttons = [NSMutableDictionary dictionary];
+    buttons[@"home"] = @(XCUIDeviceButtonHome);             // 1
+#if !TARGET_OS_SIMULATOR
+    buttons[@"volumeup"] = @(XCUIDeviceButtonVolumeUp);     // 2
+    buttons[@"volumedown"] = @(XCUIDeviceButtonVolumeDown); // 3
+#endif
+    if (@available(iOS 16.0, *)) {
+#if __clang_major__ >= 15 // likely Xcode 15+
+      if ([XCUIDevice.sharedDevice hasHardwareButton:XCUIDeviceButtonAction]) {
+        buttons[@"action"] = @(XCUIDeviceButtonAction);     // 4
+      }
+#endif
+#if (!TARGET_OS_SIMULATOR && __clang_major__ >= 16) // likely Xcode 16+
+      if ([XCUIDevice.sharedDevice hasHardwareButton:XCUIDeviceButtonCamera]) {
+        buttons[@"camera"] = @(XCUIDeviceButtonCamera);
+      }
+#endif
+    }
+    result = [buttons copy];
+  });
+  return result;
+}
+#endif
 
 @implementation XCUIDevice (FBHelpers)
 
@@ -247,7 +272,7 @@ static bool fb_isLocked;
 
 - (BOOL)fb_hasButton:(NSString *)buttonName
 {
-  return availableButtonNames()[buttonName.lowercaseString] != nil;
+  return fb_availableButtonNames()[buttonName.lowercaseString] != nil;
 }
 
 - (BOOL)fb_pressButton:(NSString *)buttonName
@@ -257,71 +282,23 @@ static bool fb_isLocked;
 #if !TARGET_OS_TV
   return [self fb_pressButton:buttonName error:error];
 #else
-  NSMutableArray<NSString *> *supportedButtonNames = [NSMutableArray array];
-  NSInteger remoteButton = -1; // no remote button
-  if ([buttonName.lowercaseString isEqualToString:@"home"]) {
-    //  XCUIRemoteButtonHome        = 7
-    remoteButton = XCUIRemoteButtonHome;
-  }
-  [supportedButtonNames addObject:@"home"];
 
-  // https://developer.apple.com/design/human-interface-guidelines/tvos/remote-and-controllers/remote/
-  if ([buttonName.lowercaseString isEqualToString:@"up"]) {
-    //  XCUIRemoteButtonUp          = 0,
-    remoteButton = XCUIRemoteButtonUp;
-  }
-  [supportedButtonNames addObject:@"up"];
-
-  if ([buttonName.lowercaseString isEqualToString:@"down"]) {
-    //  XCUIRemoteButtonDown        = 1,
-    remoteButton = XCUIRemoteButtonDown;
-  }
-  [supportedButtonNames addObject:@"down"];
-
-  if ([buttonName.lowercaseString isEqualToString:@"left"]) {
-    //  XCUIRemoteButtonLeft        = 2,
-    remoteButton = XCUIRemoteButtonLeft;
-  }
-  [supportedButtonNames addObject:@"left"];
-
-  if ([buttonName.lowercaseString isEqualToString:@"right"]) {
-    //  XCUIRemoteButtonRight       = 3,
-    remoteButton = XCUIRemoteButtonRight;
-  }
-  [supportedButtonNames addObject:@"right"];
-
-  if ([buttonName.lowercaseString isEqualToString:@"menu"]) {
-    //  XCUIRemoteButtonMenu        = 5,
-    remoteButton = XCUIRemoteButtonMenu;
-  }
-  [supportedButtonNames addObject:@"menu"];
-
-  if ([buttonName.lowercaseString isEqualToString:@"playpause"]) {
-    //  XCUIRemoteButtonPlayPause   = 6,
-    remoteButton = XCUIRemoteButtonPlayPause;
-  }
-  [supportedButtonNames addObject:@"playpause"];
-
-  if ([buttonName.lowercaseString isEqualToString:@"select"]) {
-    //  XCUIRemoteButtonSelect      = 4,
-    remoteButton = XCUIRemoteButtonSelect;
-  }
-  [supportedButtonNames addObject:@"select"];
-
-  if (remoteButton == -1) {
+  NSDictionary<NSString *, NSNumber *> *availableButtons = fb_availableButtonNames();
+  NSNumber *buttonValue = availableButtons[buttonName.lowercaseString];
+  
+  if (!buttonValue) {
+    NSArray *sortedKeys = [availableButtons.allKeys sortedArrayUsingSelector:@selector(compare:)];
     return [[[FBErrorBuilder builder]
-             withDescriptionFormat:@"The button '%@' is not supported. The device under test only supports the following buttons: %@", buttonName, supportedButtonNames]
+             withDescriptionFormat:@"The button '%@' is not supported. The device under test only supports the following buttons: %@", buttonName, sortedKeys]
             buildError:error];
   }
-
   if (duration) {
-    // https://developer.apple.com/documentation/xctest/xcuiremote/1627475-pressbutton
-    [[XCUIRemote sharedRemote] pressButton:remoteButton forDuration:duration.doubleValue];
+    // https://developer.apple.com/documentation/xcuiautomation/xcuiremote/press(_:forduration:)
+    [[XCUIRemote sharedRemote] pressButton:(XCUIRemoteButton)[buttonValue unsignedIntegerValue] forDuration:duration.doubleValue];
   } else {
-    // https://developer.apple.com/documentation/xctest/xcuiremote/1627476-pressbutton
-    [[XCUIRemote sharedRemote] pressButton:remoteButton];
+    // https://developer.apple.com/documentation/xcuiautomation/xcuiremote/press(_:)
+    [[XCUIRemote sharedRemote] pressButton:(XCUIRemoteButton)[buttonValue unsignedIntegerValue]];
   }
-
   return YES;
 #endif
 }
@@ -330,12 +307,13 @@ static bool fb_isLocked;
 - (BOOL)fb_pressButton:(NSString *)buttonName
                  error:(NSError **)error
 {
-  NSDictionary<NSString *, NSNumber *> *availableButtons = availableButtonNames();
+  NSDictionary<NSString *, NSNumber *> *availableButtons = fb_availableButtonNames();
   NSNumber *buttonValue = availableButtons[buttonName.lowercaseString];
   
   if (!buttonValue) {
+    NSArray *sortedKeys = [availableButtons.allKeys sortedArrayUsingSelector:@selector(compare:)];
     return [[[FBErrorBuilder builder]
-             withDescriptionFormat:@"The button '%@' is not supported. The device under test only supports the following buttons: %@", buttonName, availableButtons.allKeys]
+             withDescriptionFormat:@"The button '%@' is not supported. The device under test only supports the following buttons: %@", buttonName, sortedKeys]
             buildError:error];
   }
   [self pressButton:(XCUIDeviceButton)[buttonValue unsignedIntegerValue]];
