@@ -1,3 +1,9 @@
+## [11.3.0](https://github.com/appium/WebDriverAgent/compare/v11.2.0...v11.3.0) (2026-03-05)
+
+### Features
+
+* add 6 tvOS button values for `mobile: pressButton` ([#1116](https://github.com/appium/WebDriverAgent/issues/1116)) ([efd64ed](https://github.com/appium/WebDriverAgent/commit/efd64ede7212b322f412cd6b25eab9c8097c286d))
+
 ## [11.2.0](https://github.com/appium/WebDriverAgent/compare/v11.1.7...v11.2.0) (2026-03-04)
 
 ### Features
