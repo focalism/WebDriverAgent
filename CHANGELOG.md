@@ -1,3 +1,9 @@
+## [11.4.0](https://github.com/appium/WebDriverAgent/compare/v11.3.0...v11.4.0) (2026-03-08)
+
+### Features
+
+* make maxChildren configuable ([#1117](https://github.com/appium/WebDriverAgent/issues/1117)) ([57dd6dc](https://github.com/appium/WebDriverAgent/commit/57dd6dce1677e84740c13aec2742872d11d64526))
+
 ## [11.3.0](https://github.com/appium/WebDriverAgent/compare/v11.2.0...v11.3.0) (2026-03-05)
 
 ### Features
