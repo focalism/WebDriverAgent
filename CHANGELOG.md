@@ -1,3 +1,9 @@
+## [11.4.2](https://github.com/appium/WebDriverAgent/compare/v11.4.1...v11.4.2) (2026-04-12)
+
+### Bug Fixes
+
+* Avoid keeping strong reference to self instance in delegates ([#1123](https://github.com/appium/WebDriverAgent/issues/1123)) ([dd15f48](https://github.com/appium/WebDriverAgent/commit/dd15f48d33edabef6aea8ac951cf539946b492f2))
+
 ## [11.4.1](https://github.com/appium/WebDriverAgent/compare/v11.4.0...v11.4.1) (2026-03-15)
 
 ### Bug Fixes
