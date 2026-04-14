@@ -1,3 +1,15 @@
+## [12.0.0](https://github.com/appium/WebDriverAgent/compare/v11.4.3...v12.0.0) (2026-04-14)
+
+### ⚠ BREAKING CHANGES
+
+* remove idb from AppleDevice; clients must stop passing device.idb.
+* remove includeNonModalElements WDA setting; clients must stop sending this setting in /settings.
+* remove shouldUseTestManagerForVisibilityDetection capability; clients must stop sending this desired capability.
+
+### Code Refactoring
+
+* remove deprecated WDA settings/capabilities and idb typing ([#1124](https://github.com/appium/WebDriverAgent/issues/1124)) ([5072e25](https://github.com/appium/WebDriverAgent/commit/5072e255faa3538f5ff4c8769bf16fd290ee8af9))
+
 ## [11.4.3](https://github.com/appium/WebDriverAgent/compare/v11.4.2...v11.4.3) (2026-04-12)
 
 ### Miscellaneous Chores
