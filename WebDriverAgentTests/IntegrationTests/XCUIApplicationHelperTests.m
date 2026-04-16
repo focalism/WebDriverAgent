@@ -3,21 +3,38 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import <XCTest/XCTest.h>
 
 #import <mach/mach_time.h>
 
-#import "FBApplication.h"
 #import "FBIntegrationTestCase.h"
 #import "FBElement.h"
+#import "FBMacros.h"
 #import "FBTestMacros.h"
+#import "XCUIApplication.h"
 #import "XCUIApplication+FBHelpers.h"
 #import "XCUIElement+FBIsVisible.h"
 #import "FBXCodeCompatibility.h"
+
+void calculateMaxTreeDepth(NSDictionary *tree, NSNumber *currentDepth, NSNumber** maxDepth) {
+  if (nil == maxDepth) {
+    return;
+  }
+
+  NSArray *children = tree[@"children"];
+  if (nil == children || 0 == children.count) {
+    return;
+  }
+  for (NSDictionary *child in children) {
+    if (currentDepth.integerValue > [*maxDepth integerValue]) {
+      *maxDepth = currentDepth;
+    }
+    calculateMaxTreeDepth(child, @(currentDepth.integerValue + 1), maxDepth);
+  }
+}
 
 @interface XCUIApplicationHelperTests : FBIntegrationTestCase
 @end
@@ -33,23 +50,34 @@
 - (void)testQueringSpringboard
 {
   [self goToSpringBoardFirstPage];
-  XCTAssertTrue(FBApplication.fb_systemApplication.icons[@"Safari"].exists);
-  XCTAssertTrue(FBApplication.fb_systemApplication.icons[@"Calendar"].firstMatch.exists);
+  XCTAssertTrue(XCUIApplication.fb_systemApplication.icons[@"Safari"].exists);
+  XCTAssertTrue(XCUIApplication.fb_systemApplication.icons[@"Calendar"].firstMatch.exists);
 }
 
 - (void)testApplicationTree
 {
-  XCTAssertNotNil(self.testedApplication.fb_tree);
+  NSDictionary *tree = self.testedApplication.fb_tree;
+  XCTAssertNotNil(tree);
+  NSNumber *maxDepth;
+  calculateMaxTreeDepth(tree, @0, &maxDepth);
+  XCTAssertGreaterThan(maxDepth.integerValue, 3);
   XCTAssertNotNil(self.testedApplication.fb_accessibilityTree);
+}
+
+- (void)testApplicationTreeAttributesFiltering
+{
+  NSDictionary *applicationTree = [self.testedApplication fb_tree:[NSSet setWithArray:@[@"visible"]]];
+  XCTAssertNotNil(applicationTree);
+  XCTAssertNil([applicationTree objectForKey:@"isVisible"], @"'isVisible' key should not be present in the application tree");
 }
 
 - (void)testDeactivateApplication
 {
   NSError *error;
-  uint64_t timeStarted = mach_absolute_time();
+  uint64_t timeStarted = clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW);
   NSTimeInterval backgroundDuration = 5.0;
   XCTAssertTrue([self.testedApplication fb_deactivateWithDuration:backgroundDuration error:&error]);
-  NSTimeInterval timeElapsed = (mach_absolute_time() - timeStarted) / NSEC_PER_SEC;
+  NSTimeInterval timeElapsed = (clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW) - timeStarted) / NSEC_PER_SEC;
   XCTAssertNil(error);
   XCTAssertEqualWithAccuracy(timeElapsed, backgroundDuration, 3.0);
   XCTAssertTrue(self.testedApplication.buttons[@"Alerts"].exists);
@@ -57,10 +85,9 @@
 
 - (void)testActiveApplication
 {
-  FBApplication *systemApp = FBApplication.fb_systemApplication;
-  XCTAssertTrue([FBApplication fb_activeApplication].buttons[@"Alerts"].fb_isVisible);
+  XCUIApplication *systemApp = XCUIApplication.fb_systemApplication;
+  XCTAssertTrue([XCUIApplication fb_activeApplication].buttons[@"Alerts"].fb_isVisible);
   [self goToSpringBoardFirstPage];
-  XCTAssertEqualObjects([FBApplication fb_activeApplication].bundleID, systemApp.bundleID);
   XCTAssertTrue(systemApp.icons[@"Safari"].fb_isVisible);
 }
 
@@ -92,6 +119,44 @@
 - (void)testTestmanagerdVersion
 {
   XCTAssertGreaterThan(FBTestmanagerdVersion(), 0);
+}
+
+- (void)testAccessbilityAudit
+{
+  if (SYSTEM_VERSION_LESS_THAN(@"17.0")) {
+    return;
+  }
+
+  NSError *error;
+  NSArray *auditIssues1 = [XCUIApplication.fb_activeApplication fb_performAccessibilityAuditWithAuditTypes:~0UL
+                                                                                                   error:&error];
+  XCTAssertNotNil(auditIssues1);
+  XCTAssertNil(error);
+
+  NSMutableSet *set = [NSMutableSet new];
+  [set addObject:@"XCUIAccessibilityAuditTypeAll"];
+  NSArray *auditIssues2 = [XCUIApplication.fb_activeApplication fb_performAccessibilityAuditWithAuditTypesSet:set.copy
+                                                                                                      error:&error];
+  // 'elementDescription' is not in this list because it could have
+  // different object id's debug description in XCTest.
+  NSArray *checkKeys = @[
+    @"auditType",
+    @"compactDescription",
+    @"detailedDescription",
+    @"element",
+    @"elementAttributes"
+  ];
+
+  XCTAssertEqual([auditIssues1 count], [auditIssues2 count]);
+  for (int i = 1; i < [auditIssues1 count]; i++) {
+    for (NSString *k in checkKeys) {
+      XCTAssertEqualObjects(
+                            [auditIssues1[i] objectForKey:k],
+                            [auditIssues2[i] objectForKey:k]
+                            );
+    }
+  }
+  XCTAssertNil(error);
 }
 
 @end

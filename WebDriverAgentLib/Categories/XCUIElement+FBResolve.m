@@ -3,8 +3,7 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "XCUIElement+FBResolve.h"
@@ -32,24 +31,21 @@ static char XCUIELEMENT_IS_RESOLVED_NATIVELY_KEY;
   return nil == result ? @YES : result;
 }
 
-- (XCUIElement *)fb_stableInstance
+- (XCUIElement *)fb_stableInstanceWithUid:(NSString *)uid
 {
-  if (![self.fb_isResolvedNatively boolValue]) {
+  if (nil == uid || ![self.fb_isResolvedNatively boolValue] || [self isKindOfClass:XCUIApplication.class]) {
     return self;
   }
-
-  XCUIElementQuery *query = [self isKindOfClass:XCUIApplication.class]
-    ? self.application.fb_query
-    : [self.application.fb_query descendantsMatchingType:XCUIElementTypeAny];
-  FBXCElementSnapshotWrapper *cachedSnapshot = [FBXCElementSnapshotWrapper ensureWrapped:self.fb_cachedSnapshot];
-  NSString *uid = nil == cachedSnapshot ? self.fb_uid : cachedSnapshot.fb_uid;
-  if (nil == uid) {
-    return self;
+  NSPredicate *predicate = [NSPredicate predicateWithFormat:@"%K = %@", FBStringify(FBXCElementSnapshotWrapper, fb_uid), uid];
+  @autoreleasepool {
+    XCUIElementQuery *query = [self.application.fb_query descendantsMatchingType:XCUIElementTypeAny];
+    XCUIElement *result = [query matchingPredicate:predicate].allElementsBoundByIndex.firstObject;
+    if (nil != result) {
+      result.fb_isResolvedNatively = @NO;
+      return result;
+    }
   }
-  NSPredicate *predicate = [NSPredicate predicateWithBlock:^BOOL(id<FBXCElementSnapshot> snapshot, NSDictionary *bindings) {
-    return [[FBXCElementSnapshotWrapper ensureWrapped:snapshot].fb_uid isEqualToString:uid];
-  }];
-  return (XCUIElement *)[query matchingPredicate:predicate].fb_firstMatch;
+  return self;
 }
 
 @end

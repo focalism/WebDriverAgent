@@ -3,11 +3,14 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import <XCTest/XCTest.h>
+
+#if !TARGET_OS_TV
+#import <CoreLocation/CoreLocation.h>
+#endif
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -66,13 +69,14 @@ typedef NS_ENUM(NSUInteger, FBUIInterfaceAppearance) {
 - (nullable NSData *)fb_screenshotWithError:(NSError*__autoreleasing*)error;
 
 /**
- Returns device current wifi ip4 address
+ Returns device's current wifi ip4 address
  */
 - (nullable NSString *)fb_wifiIPAddress;
 
 /**
- Opens the particular url scheme using Siri voice recognition helpers.
- This will only work since XCode 8.3/iOS 10.3
+ Opens the particular url scheme using the default application assigned to it.
+ This API only works since XCode 14.3/iOS 16.4
+ Older Xcode/iOS version try to use Siri fallback.
  
  @param url The url scheme represented as a string, for example https://apple.com
  @param error If there is an error, upon return contains an NSError object that describes the problem.
@@ -81,9 +85,29 @@ typedef NS_ENUM(NSUInteger, FBUIInterfaceAppearance) {
 - (BOOL)fb_openUrl:(NSString *)url error:(NSError **)error;
 
 /**
+ Opens the particular url scheme using the given application
+ This API only works since XCode 14.3/iOS 16.4
+
+ @param url The url scheme represented as a string, for example https://apple.com
+ @param bundleId The bundle identifier of an application to use in order to open the given URL
+ @param error If there is an error, upon return contains an NSError object that describes the problem.
+ @return YES if the operation was successful
+ */
+- (BOOL)fb_openUrl:(NSString *)url withApplication:(NSString *)bundleId error:(NSError **)error;
+
+/**
+ Checks if the device has a specific hardware button available.
+
+ @param buttonName The name of the button to check (e.g., "home", "volumeUp", "volumeDown", "action", "camera")
+ @return YES if the button is available on the device, otherwise NO
+ */
+- (BOOL)fb_hasButton:(NSString *)buttonName;
+
+/**
  Presses the corresponding hardware button on the device with duration.
 
- @param buttonName One of the supported button names: volumeUp (real devices only), volumeDown (real device only), home
+ @param buttonName One of the supported button names: volumeUp (real devices only), volumeDown (real device only),
+                   camera (supported iOS 16+ real devices only), action (supported iOS 16+ devices only), home
  @param duration Duration in seconds or nil.
                 This argument works only on tvOS. When this argument is nil on tvOS,
                 https://developer.apple.com/documentation/xctest/xcuiremote/1627476-pressbutton will be called.
@@ -149,6 +173,37 @@ typedef NS_ENUM(NSUInteger, FBUIInterfaceAppearance) {
  @return 0 (automatic), 1 (light) or 2 (dark), or nil
  */
 - (nullable NSNumber *)fb_getAppearance;
+
+#if !TARGET_OS_TV
+/**
+ Allows to set a simulated geolocation coordinates.
+ Only works since Xcode 14.3/iOS 16.4
+
+ @param location The simlated location coordinates to set
+ @param error If there is an error, upon return contains an NSError object that describes the problem.
+ @return YES if the simulated location has been successfully set
+ */
+- (BOOL)fb_setSimulatedLocation:(CLLocation *)location error:(NSError **)error;
+
+/**
+ Allows to get a simulated geolocation coordinates.
+ Only works since Xcode 14.3/iOS 16.4
+
+ @param error If there is an error, upon return contains an NSError object that describes the problem.
+ @return The current simulated location or nil in case of failure or if no location has previously been seet
+ (the returned error will be nil in the latter case)
+ */
+- (nullable CLLocation *)fb_getSimulatedLocation:(NSError **)error;
+
+/**
+ Allows to clear a previosuly set simulated geolocation coordinates.
+ Only works since Xcode 14.3/iOS 16.4
+
+ @param error If there is an error, upon return contains an NSError object that describes the problem.
+ @return YES if the simulated location has been successfully cleared
+ */
+- (BOOL)fb_clearSimulatedLocation:(NSError **)error;
+#endif
 
 @end
 

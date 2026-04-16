@@ -3,8 +3,7 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import <Foundation/Foundation.h>
@@ -63,6 +62,14 @@ extern NSString *const FBUnknownAttributeException;
  @return the unique element identifier or nil if it cannot be retrieved
  */
 + (unsigned long long)idWithAccessibilityElement:(id<FBXCAccessibilityElement>)element;
+
+/**
+ Retrieves the list of required instance methods of the given protocol
+
+ @param protocol target protocol reference
+ @return set of selector names
+ */
++ (NSSet<NSString *> *)selectorNamesWithProtocol:(Protocol *)protocol;
 
 @end
 

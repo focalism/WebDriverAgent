@@ -3,8 +3,7 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import <UIKit/UIKit.h>
@@ -15,8 +14,8 @@ FOUNDATION_EXPORT double WebDriverAgentLib_VersionNumber;
 //! Project version string for WebDriverAgentLib_.
 FOUNDATION_EXPORT const unsigned char WebDriverAgentLib_VersionString[];
 
+#import <WebDriverAgentLib/CDStructures.h>
 #import <WebDriverAgentLib/FBAlert.h>
-#import <WebDriverAgentLib/FBApplication.h>
 #import <WebDriverAgentLib/FBCommandHandler.h>
 #import <WebDriverAgentLib/FBCommandStatus.h>
 #import <WebDriverAgentLib/FBConfiguration.h>
@@ -39,14 +38,22 @@ FOUNDATION_EXPORT const unsigned char WebDriverAgentLib_VersionString[];
 #import <WebDriverAgentLib/FBRuntimeUtils.h>
 #import <WebDriverAgentLib/FBSession.h>
 #import <WebDriverAgentLib/FBWebServer.h>
+#import <WebDriverAgentLib/FBXCElementSnapshot.h>
+#import <WebDriverAgentLib/FBXCElementSnapshotWrapper.h>
+#import <WebDriverAgentLib/FBXPath.h>
+#import <WebDriverAgentLib/WebDriverAgentLib.h>
+#import <WebDriverAgentLib/XCDebugLogDelegate-Protocol.h>
+#import <WebDriverAgentLib/XCTestCase.h>
+#import <WebDriverAgentLib/XCTIssue+FBPatcher.h>
 #import <WebDriverAgentLib/XCUIApplication+FBHelpers.h>
 #import <WebDriverAgentLib/XCUIDevice+FBHelpers.h>
 #import <WebDriverAgentLib/XCUIDevice+FBRotation.h>
+#import <WebDriverAgentLib/XCUIElement.h>
 #import <WebDriverAgentLib/XCUIElement+FBAccessibility.h>
 #import <WebDriverAgentLib/XCUIElement+FBFind.h>
 #import <WebDriverAgentLib/XCUIElement+FBIsVisible.h>
 #import <WebDriverAgentLib/XCUIElement+FBScrolling.h>
-#import <WebDriverAgentLib/XCUIElement+FBTap.h>
 #import <WebDriverAgentLib/XCUIElement+FBForceTouch.h>
 #import <WebDriverAgentLib/XCUIElement+FBUtilities.h>
 #import <WebDriverAgentLib/XCUIElement+FBWebDriverAttributes.h>
+#import <WebDriverAgentLib/XCTIssue+FBPatcher.h>

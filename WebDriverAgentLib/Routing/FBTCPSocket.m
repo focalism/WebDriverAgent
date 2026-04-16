@@ -3,8 +3,7 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "FBTCPSocket.h"
@@ -49,11 +48,14 @@
 - (void)stop
 {
   @synchronized(self.connectedClients) {
-    for (NSUInteger i = 0; i < [self.connectedClients count]; i++) {
-      [[self.connectedClients objectAtIndex:i] disconnect];
+    NSArray *clients = self.connectedClients.copy;
+    [self.connectedClients removeAllObjects];
+    for (GCDAsyncSocket *client in clients) {
+      [client disconnect];
     }
   }
 
+  self.delegate = nil;
   [self.listeningSocket disconnect];
 }
 
@@ -67,12 +69,18 @@
   @synchronized(self.connectedClients) {
     [self.connectedClients addObject:newSocket];
   }
-  [self.delegate didClientConnect:newSocket];
+  id<FBTCPSocketDelegate> delegate = self.delegate;
+  if (nil != delegate) {
+    [delegate didClientConnect:newSocket];
+  }
 }
 
 - (void)socket:(GCDAsyncSocket *)sock didReadData:(NSData *)data withTag:(long)tag
 {
-  [self.delegate didClientSendData:sock];
+  id<FBTCPSocketDelegate> delegate = self.delegate;
+  if (nil != delegate) {
+    [delegate didClientSendData:sock];
+  }
 }
 
 - (void)socketDidDisconnect:(GCDAsyncSocket *)sock withError:(NSError *)err
@@ -80,7 +88,10 @@
   @synchronized(self.connectedClients) {
     [self.connectedClients removeObject:sock];
   }
-  [self.delegate didClientDisconnect:sock];
+  id<FBTCPSocketDelegate> delegate = self.delegate;
+  if (nil != delegate) {
+    [delegate didClientDisconnect:sock];
+  }
 }
 
 @end

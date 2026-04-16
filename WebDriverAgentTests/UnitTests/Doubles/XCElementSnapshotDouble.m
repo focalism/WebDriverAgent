@@ -3,14 +3,14 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "XCElementSnapshotDouble.h"
 
 #import "FBXCAccessibilityElement.h"
 #import "FBXCElementSnapshot.h"
+#import "XCUIHitPointResult.h"
 
 @implementation XCElementSnapshotDouble
 
@@ -18,6 +18,8 @@
 {
   self = [super init];
   self->_value = @"magicValue";
+  self->_label = @"testLabel";
+  self->_additionalAttributes = [NSMutableDictionary dictionary];
   return self;
 }
 
@@ -34,11 +36,6 @@
 - (NSString *)title
 {
   return @"testTitle";
-}
-
-- (NSString *)label
-{
-  return @"testLabel";
 }
 
 - (XCUIElementType)elementType
@@ -63,7 +60,7 @@
 
 - (NSString *)placeholderValue
 {
-  return @"";
+  return @"testPlaceholderValue";
 }
 
 - (BOOL)isSelected
@@ -76,11 +73,6 @@
   return YES;
 }
 
-- (NSDictionary *)additionalAttributes
-{
-  return @{};
-}
-
 - (id<FBXCAccessibilityElement>)accessibilityElement
 {
   return nil;
@@ -91,9 +83,28 @@
   return nil;
 }
 
+- (XCUIHitPointResult *)hitPoint:(NSError **)error
+{
+  return [[XCUIHitPointResult alloc] initWithHitPoint:CGPointZero hittable:YES];
+}
+
 - (NSArray *)children
 {
   return @[];
 }
 
+- (NSArray *)_allDescendants
+{
+  return @[];
+}
+
+- (CGRect)visibleFrame
+{
+  return CGRectZero;
+}
+
+- (UIAccessibilityTraits)traits
+{
+  return UIAccessibilityTraitButton;
+}
 @end

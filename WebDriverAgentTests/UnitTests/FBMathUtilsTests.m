@@ -3,8 +3,7 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import <XCTest/XCTest.h>
@@ -96,18 +95,6 @@
   CGRect referenceRect = CGRectMake(0, 0, 2, 2);
   XCTAssertFalse(FBRectFuzzyEqualToRect(referenceRect, CGRectMake(1, 1, 3, 3), 1));
   XCTAssertFalse(FBRectFuzzyEqualToRect(referenceRect, CGRectMake(-1, -1, 1, 1), 1));
-}
-
-
-- (void)testPointInvertion
-{
-  const CGPoint testPoint = CGPointMake(1, 2);
-  const CGSize screenSize = CGSizeMake(10, 15);
-  const CGFloat t = FBDefaultFrameFuzzyThreshold;
-  XCTAssertTrue(FBPointFuzzyEqualToPoint(CGPointMake(1, 2), FBInvertPointForApplication(testPoint, screenSize, UIInterfaceOrientationPortrait), t));
-  XCTAssertTrue(FBPointFuzzyEqualToPoint(CGPointMake(9, 13), FBInvertPointForApplication(testPoint, screenSize, UIInterfaceOrientationPortraitUpsideDown), t));
-  XCTAssertTrue(FBPointFuzzyEqualToPoint(CGPointMake(2, 14), FBInvertPointForApplication(testPoint, screenSize, UIInterfaceOrientationLandscapeLeft), t));
-  XCTAssertTrue(FBPointFuzzyEqualToPoint(CGPointMake(8, 1), FBInvertPointForApplication(testPoint, screenSize, UIInterfaceOrientationLandscapeRight), t));
 }
 
 - (void)testSizeInversion

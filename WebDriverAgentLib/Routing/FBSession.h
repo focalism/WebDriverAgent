@@ -3,16 +3,18 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import <Foundation/Foundation.h>
 
-@class FBApplication;
 @class FBElementCache;
+@class XCUIApplication;
 
 NS_ASSUME_NONNULL_BEGIN
+
+/** Bundle identifier of Mobile Safari browser */
+extern NSString* const FB_SAFARI_BUNDLE_ID;
 
 /**
  Class that represents testing session
@@ -20,18 +22,18 @@ NS_ASSUME_NONNULL_BEGIN
 @interface FBSession : NSObject
 
 /*! Application tested during that session */
-@property (nonatomic, strong, readonly) FBApplication *activeApplication;
+@property (nonatomic, readonly) XCUIApplication *activeApplication;
 
 @property (nonatomic) FBApplication *tempApplication;
 
 /*! Session's identifier */
-@property (nonatomic, copy, readonly) NSString *identifier;
+@property (nonatomic, readonly) NSString *identifier;
 
 /*! Element cache related to that session */
-@property (nonatomic, strong, readonly) FBElementCache *elementCache;
+@property (nonatomic, readonly) FBElementCache *elementCache;
 
 /*! The identifier of the active application */
-@property (nonatomic, copy) NSString *defaultActiveApplication;
+@property (nonatomic) NSString *defaultActiveApplication;
 
 /*! The action to apply to unexpected alerts. Either "accept"/"dismiss" or nil/empty string (by default) to do nothing */
 @property (nonatomic, nullable) NSString *defaultAlertAction;
@@ -59,7 +61,7 @@ NS_ASSUME_NONNULL_BEGIN
  @param application The application that we want to create session for
  @return new session
  */
-+ (instancetype)initWithApplication:(nullable FBApplication *)application;
++ (instancetype)initWithApplication:(nullable XCUIApplication *)application;
 
 /**
  Creates and saves new session for application with default alert handling behaviour
@@ -68,7 +70,8 @@ NS_ASSUME_NONNULL_BEGIN
  @param defaultAlertAction The default reaction to on-screen alert. Either 'accept' or 'dismiss'
  @return new session
  */
-+ (instancetype)initWithApplication:(nullable FBApplication *)application defaultAlertAction:(NSString *)defaultAlertAction;
++ (instancetype)initWithApplication:(nullable XCUIApplication *)application
+                 defaultAlertAction:(NSString *)defaultAlertAction;
 
 /**
  Kills application associated with that session and removes session
@@ -84,12 +87,11 @@ NS_ASSUME_NONNULL_BEGIN
  @param arguments The optional array of application command line arguments. The arguments are going to be applied if the application was not running before.
  @param environment The optional dictionary of environment variables for the application, which is going to be executed. The environment variables are going to be applied if the application was not running before.
  @return The application instance
- @throws FBApplicationMethodNotSupportedException if the method is not supported with the current XCTest SDK
  */
-- (FBApplication *)launchApplicationWithBundleId:(NSString *)bundleIdentifier
-                         shouldWaitForQuiescence:(nullable NSNumber *)shouldWaitForQuiescence
-                                       arguments:(nullable NSArray<NSString *> *)arguments
-                                     environment:(nullable NSDictionary <NSString *, NSString *> *)environment;
+- (XCUIApplication *)launchApplicationWithBundleId:(NSString *)bundleIdentifier
+                           shouldWaitForQuiescence:(nullable NSNumber *)shouldWaitForQuiescence
+                                         arguments:(nullable NSArray<NSString *> *)arguments
+                                       environment:(nullable NSDictionary <NSString *, NSString *> *)environment;
 
 /**
  Activate an application with given bundle identifier in scope of current session.
@@ -97,9 +99,8 @@ NS_ASSUME_NONNULL_BEGIN
 
  @param bundleIdentifier Valid bundle identifier of the application to be activated
  @return The application instance
- @throws FBApplicationMethodNotSupportedException if the method is not supported with the current XCTest SDK
  */
-- (FBApplication *)activateApplicationWithBundleId:(NSString *)bundleIdentifier;
+- (XCUIApplication *)activateApplicationWithBundleId:(NSString *)bundleIdentifier;
 
 /**
  Terminate an application with the given bundle id. The application should be previously
@@ -120,6 +121,22 @@ NS_ASSUME_NONNULL_BEGIN
          for more details on possible enum values
  */
 - (NSUInteger)applicationStateWithBundleId:(NSString *)bundleIdentifier;
+
+/**
+ Allows to enable automated session alerts monitoring.
+ Repeated calls are ignored if alerts monitoring has been already enabled.
+
+ @returns YES if the actual alerts monitoring state has been changed
+ */
+- (BOOL)enableAlertsMonitor;
+
+/**
+ Allows to disable automated alerts monitoring
+ Repeated calls are ignored if alerts monitoring has been already disabled.
+
+ @returns YES if the actual alerts monitoring state has been changed
+ */
+- (BOOL)disableAlertsMonitor;
 
 @end
 

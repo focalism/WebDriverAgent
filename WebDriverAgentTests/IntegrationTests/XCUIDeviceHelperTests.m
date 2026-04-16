@@ -3,17 +3,17 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import <XCTest/XCTest.h>
 
-#import "FBApplication.h"
 #import "FBIntegrationTestCase.h"
 #import "FBImageUtils.h"
 #import "FBMacros.h"
 #import "FBTestMacros.h"
+#import "XCUIApplication.h"
+#import "XCUIApplication+FBHelpers.h"
 #import "XCUIDevice+FBHelpers.h"
 #import "XCUIDevice+FBRotation.h"
 #import "XCUIScreen.h"
@@ -78,14 +78,12 @@
   XCTAssertTrue(screenshot.size.width > screenshot.size.height);
 
   XCUIScreen *mainScreen = XCUIScreen.mainScreen;
-  // TODO: This screenshot rotation was not landscape in an iOS 16 beta simulator. 
   UIImage *screenshotExact = ((XCUIScreenshot *)mainScreen.screenshot).image;
-  XCTAssertEqualWithAccuracy(screenshotExact.size.height * mainScreen.scale,
-                             screenshot.size.height,
-                             FLT_EPSILON);
-  XCTAssertEqualWithAccuracy(screenshotExact.size.width * mainScreen.scale,
-                             screenshot.size.width,
-                             FLT_EPSILON);
+  CGSize realMainScreenSize = screenshotExact.size.height > screenshot.size.width
+    ? CGSizeMake(screenshotExact.size.height * mainScreen.scale, screenshotExact.size.width * mainScreen.scale)
+    : CGSizeMake(screenshotExact.size.width * mainScreen.scale, screenshotExact.size.height * mainScreen.scale);
+  XCTAssertEqualWithAccuracy(realMainScreenSize.height, screenshot.size.height, FLT_EPSILON);
+  XCTAssertEqualWithAccuracy(realMainScreenSize.width, screenshot.size.width, FLT_EPSILON);
 }
 
 - (void)testWifiAddress
@@ -103,7 +101,7 @@
   NSError *error;
   XCTAssertTrue([[XCUIDevice sharedDevice] fb_goToHomescreenWithError:&error]);
   XCTAssertNil(error);
-  XCTAssertTrue([FBApplication fb_activeApplication].icons[@"Safari"].exists);
+  FBAssertWaitTillBecomesTrue([XCUIApplication fb_activeApplication].icons[@"Safari"].exists);
 }
 
 - (void)testLockUnlockScreen
@@ -118,14 +116,56 @@
   XCTAssertNil(error);
 }
 
-- (void)disabled_testUrlSchemeActivation
+- (void)testUrlSchemeActivation
 {
-  // This test is not stable on CI because of system slowness
+  if (SYSTEM_VERSION_LESS_THAN(@"16.4")) {
+    return;
+  }
+
   NSError *error;
   XCTAssertTrue([XCUIDevice.sharedDevice fb_openUrl:@"https://apple.com" error:&error]);
-  FBAssertWaitTillBecomesTrue([FBApplication.fb_activeApplication.bundleID isEqualToString:@"com.apple.mobilesafari"]);
+  FBAssertWaitTillBecomesTrue([XCUIApplication.fb_activeApplication.bundleID isEqualToString:@"com.apple.mobilesafari"]);
   XCTAssertNil(error);
 }
+
+- (void)testUrlSchemeActivationWithApp
+{
+  if (SYSTEM_VERSION_LESS_THAN(@"16.4")) {
+    return;
+  }
+
+  NSError *error;
+  XCTAssertTrue([XCUIDevice.sharedDevice fb_openUrl:@"https://apple.com"
+                                    withApplication:@"com.apple.mobilesafari"
+                                              error:&error]);
+  FBAssertWaitTillBecomesTrue([XCUIApplication.fb_activeApplication.bundleID isEqualToString:@"com.apple.mobilesafari"]);
+  XCTAssertNil(error);
+}
+
+#if !TARGET_OS_TV
+- (void)testSimulatedLocationSetup
+{
+  if (SYSTEM_VERSION_LESS_THAN(@"16.4")) {
+    return;
+  }
+
+  CLLocation *simulatedLocation = [[CLLocation alloc] initWithLatitude:50 longitude:50];
+  NSError *error;
+  XCTAssertTrue([XCUIDevice.sharedDevice fb_setSimulatedLocation:simulatedLocation error:&error]);
+  XCTAssertNil(error);
+  CLLocation *currentLocation = [XCUIDevice.sharedDevice fb_getSimulatedLocation:&error];
+  XCTAssertNil(error);
+  XCTAssertNotNil(currentLocation);
+  XCTAssertEqualWithAccuracy(simulatedLocation.coordinate.latitude, currentLocation.coordinate.latitude, 0.1);
+  XCTAssertEqualWithAccuracy(simulatedLocation.coordinate.longitude, currentLocation.coordinate.longitude, 0.1);
+  XCTAssertTrue([XCUIDevice.sharedDevice fb_clearSimulatedLocation:&error]);
+  XCTAssertNil(error);
+  currentLocation = [XCUIDevice.sharedDevice fb_getSimulatedLocation:&error];
+  XCTAssertNil(error);
+  XCTAssertNotEqualWithAccuracy(simulatedLocation.coordinate.latitude, currentLocation.coordinate.latitude, 0.1);
+  XCTAssertNotEqualWithAccuracy(simulatedLocation.coordinate.longitude, currentLocation.coordinate.longitude, 0.1);
+}
+#endif
 
 - (void)testPressingUnsupportedButton
 {
@@ -144,6 +184,22 @@
                                             forDuration:nil
                                                   error:&error]);
   XCTAssertNil(error);
+}
+
+- (void)testPressingDeviceSpecificButton
+{
+  NSError *error;
+  BOOL hasActionButton = [XCUIDevice.sharedDevice fb_hasButton:@"action"];
+  BOOL didPressButton = [XCUIDevice.sharedDevice fb_pressButton:@"action"
+                                                     forDuration:nil
+                                                           error:&error];
+  if (hasActionButton) {
+    XCTAssertTrue(didPressButton);
+    XCTAssertNil(error);
+  } else {
+    XCTAssertFalse(didPressButton);
+    XCTAssertNotNil(error);
+  }
 }
 
 - (void)testPressingSupportedButtonNumber

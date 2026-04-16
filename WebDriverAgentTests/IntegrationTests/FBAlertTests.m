@@ -3,19 +3,18 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import <XCTest/XCTest.h>
 
 #import <WebDriverAgentLib/FBAlert.h>
+#import <XCTest/XCTest.h>
 
 #import "FBConfiguration.h"
 #import "FBIntegrationTestCase.h"
 #import "FBTestMacros.h"
 #import "FBMacros.h"
-#import "XCUIElement+FBTap.h"
 
 @interface FBAlertTests : FBIntegrationTestCase
 @end
@@ -25,13 +24,29 @@
 - (void)setUp
 {
   [super setUp];
-  static dispatch_once_t onceToken;
-  dispatch_once(&onceToken, ^{
-    [self launchApplication];
-    [self goToAlertsPage];
-    [FBConfiguration disableApplicationUIInterruptionsHandling];
-  });
-  [self clearAlert];
+  [self resetPermissions];
+  [self launchApplication];
+  [self goToAlertsPage];
+  [FBConfiguration disableApplicationUIInterruptionsHandling];
+}
+
+- (void)resetPermissions
+{
+  if (@available(iOS 13.4, *)) {
+    NSArray* resources = @[
+      @(XCUIProtectedResourceContacts),
+      @(XCUIProtectedResourceCalendar),
+      @(XCUIProtectedResourceReminders),
+      @(XCUIProtectedResourcePhotos),
+      @(XCUIProtectedResourceMicrophone),
+      @(XCUIProtectedResourceCamera),
+      @(XCUIProtectedResourceMediaLibrary),
+      @(XCUIProtectedResourceLocation),
+    ];
+    for (NSNumber *resource in resources) {
+      [self.testedApplication resetAuthorizationStatusForResource:(XCUIProtectedResource)[resource unsignedLongValue]];
+    }
+  }
 }
 
 - (void)tearDown
@@ -42,13 +57,13 @@
 
 - (void)showApplicationAlert
 {
-  [self.testedApplication.buttons[FBShowAlertButtonName] fb_tapWithError:nil];
+  [self.testedApplication.buttons[FBShowAlertButtonName] tap];
   FBAssertWaitTillBecomesTrue(self.testedApplication.alerts.count != 0);
 }
 
 - (void)showApplicationSheet
 {
-  [self.testedApplication.buttons[FBShowSheetAlertButtonName] fb_tapWithError:nil];
+  [self.testedApplication.buttons[FBShowSheetAlertButtonName] tap];
   FBAssertWaitTillBecomesTrue(self.testedApplication.sheets.count != 0);
 }
 
@@ -162,13 +177,6 @@
 
   [self.testedApplication.buttons[@"Create Camera Roll Alert"] tap];
   FBAssertWaitTillBecomesTrue(alert.isPresent);
-
-  XCTAssertTrue([alert.text containsString:@"Would Like to Access Your Photos"]);
-  // iOS 15 has different UI flow
-  if (SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"15.0")) {
-    [[FBAlert alertWithApplication:self.testedApplication] dismissWithError:nil];
-    [self.testedApplication.buttons[@"Cancel"] tap];
-  }
 }
 
 - (void)testGPSAccessAlert

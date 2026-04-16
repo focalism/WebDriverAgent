@@ -3,13 +3,14 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "XCUIDevice+FBRotation.h"
 
 #import "FBConfiguration.h"
+#import "XCUIApplication.h"
+#import "XCUIApplication+FBHelpers.h"
 #import "XCUIElement+FBUtilities.h"
 
 # if !TARGET_OS_TV
@@ -18,7 +19,7 @@
 
 - (BOOL)fb_setDeviceInterfaceOrientation:(UIDeviceOrientation)orientation
 {
-  FBApplication *application = FBApplication.fb_activeApplication;
+  XCUIApplication *application = XCUIApplication.fb_activeApplication;
   [XCUIDevice sharedDevice].orientation = orientation;
   return [self waitUntilInterfaceIsAtOrientation:orientation application:application];
 }
@@ -30,12 +31,12 @@
     return NO;
   }
   NSInteger orientation = keysForRotationObj.firstObject.integerValue;
-  FBApplication *application = FBApplication.fb_activeApplication;
+  XCUIApplication *application = XCUIApplication.fb_activeApplication;
   [XCUIDevice sharedDevice].orientation = orientation;
   return [self waitUntilInterfaceIsAtOrientation:orientation application:application];
 }
 
-- (BOOL)waitUntilInterfaceIsAtOrientation:(NSInteger)orientation application:(FBApplication *)application
+- (BOOL)waitUntilInterfaceIsAtOrientation:(NSInteger)orientation application:(XCUIApplication *)application
 {
   // Tapping elements immediately after rotation may fail due to way UIKit is handling touches.
   // We should wait till UI cools off, before continuing

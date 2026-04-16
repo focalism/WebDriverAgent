@@ -3,17 +3,16 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "FBPasteboard.h"
 
 #import <mach/mach_time.h>
 #import "FBAlert.h"
-#import "FBApplication.h"
 #import "FBErrorBuilder.h"
 #import "FBMacros.h"
+#import "XCUIApplication+FBHelpers.h"
 #import "XCUIApplication+FBAlert.h"
 
 #define ALERT_TIMEOUT_SEC 30
@@ -94,19 +93,19 @@
     pasteboardContent = result;
     didFinishGetPasteboard = YES;
   });
-  uint64_t timeStarted = mach_absolute_time();
+  uint64_t timeStarted = clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW);
   while (!didFinishGetPasteboard) {
     [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:ALERT_CHECK_INTERVAL_SEC]];
     if (didFinishGetPasteboard) {
       break;
     }
 
-    XCUIElement *alertElement = FBApplication.fb_systemApplication.fb_alertElement;
+    XCUIElement *alertElement = XCUIApplication.fb_systemApplication.fb_alertElement;
     if (nil != alertElement) {
       FBAlert *alert = [FBAlert alertWithElement:alertElement];
       [alert acceptWithError:nil];
     }
-    uint64_t timeElapsed = mach_absolute_time() - timeStarted;
+    uint64_t timeElapsed = clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW) - timeStarted;
     if (timeElapsed / NSEC_PER_SEC > timeout) {
       NSString *description = [NSString stringWithFormat:@"Cannot handle pasteboard alert within %@s timeout", @(timeout)];
       if (error) {

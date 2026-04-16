@@ -3,8 +3,7 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "XCUIElement+FBForceTouch.h"
@@ -35,10 +34,10 @@
       [self pressWithPressure:[pressure doubleValue] duration:[duration doubleValue]];
     }
   } else {
-    CGSize size = self.frame.size;
-    CGVector offset = CGVectorMake(size.width > 0 ? relativeCoordinate.CGPointValue.x / size.width : 0,
-                                   size.height > 0 ? relativeCoordinate.CGPointValue.y / size.height : 0);
-    XCUICoordinate *hitPoint = [self coordinateWithNormalizedOffset:offset];
+    CGVector offset = CGVectorMake(relativeCoordinate.CGPointValue.x,
+                                   relativeCoordinate.CGPointValue.y);
+    XCUICoordinate *hitPoint = [[self coordinateWithNormalizedOffset:CGVectorMake(0, 0)]
+                                coordinateWithOffset:offset];
     if (nil == pressure || nil == duration) {
       [hitPoint forcePress];
     } else {

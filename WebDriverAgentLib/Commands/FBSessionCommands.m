@@ -3,21 +3,20 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "FBSessionCommands.h"
 
-#import "FBApplication.h"
 #import "FBCapabilities.h"
+#import "FBClassChainQueryParser.h"
 #import "FBConfiguration.h"
+#import "FBExceptions.h"
 #import "FBLogger.h"
 #import "FBProtocolHelpers.h"
 #import "FBRouteRequest.h"
 #import "FBSession.h"
 #import "FBSettings.h"
-#import "FBApplication.h"
 #import "FBRuntimeUtils.h"
 #import "FBActiveAppDetectionPoint.h"
 #import "FBXCodeCompatibility.h"
@@ -74,9 +73,21 @@
   if (!urlString) {
     return FBResponseWithStatus([FBCommandStatus invalidArgumentErrorWithMessage:@"URL is required" traceback:nil]);
   }
+  NSString* bundleId = request.arguments[@"bundleId"];
+  NSNumber* idleTimeoutMs = request.arguments[@"idleTimeoutMs"];
   NSError *error;
-  if (![XCUIDevice.sharedDevice fb_openUrl:urlString error:&error]) {
-    return FBResponseWithUnknownError(error);
+  if (nil == bundleId) {
+    if (![XCUIDevice.sharedDevice fb_openUrl:urlString error:&error]) {
+      return FBResponseWithUnknownError(error);
+    }
+  } else {
+    if (![XCUIDevice.sharedDevice fb_openUrl:urlString withApplication:bundleId error:&error]) {
+      return FBResponseWithUnknownError(error);
+    }
+    if (idleTimeoutMs.doubleValue > 0) {
+      XCUIApplication *app = [[XCUIApplication alloc] initWithBundleIdentifier:bundleId];
+      [app fb_waitUntilStableWithTimeout:FBMillisToSeconds(idleTimeoutMs.doubleValue)];
+    }
   }
   return FBResponseWithOK();
 }
@@ -94,9 +105,10 @@
                                                               traceback:nil]);
   }
   if (nil == (capabilities = FBParseCapabilities((NSDictionary *)request.arguments[@"capabilities"], &error))) {
-    return FBResponseWithStatus([FBCommandStatus sessionNotCreatedError:error.description traceback:nil]);
+    return FBResponseWithStatus([FBCommandStatus sessionNotCreatedError:error.localizedDescription traceback:nil]);
   }
-  [FBConfiguration setShouldUseTestManagerForVisibilityDetection:[capabilities[FB_CAP_USE_TEST_MANAGER_FOR_VISIBLITY_DETECTION] boolValue]];
+
+  [FBConfiguration resetSessionSettings];
   if (capabilities[FB_SETTING_USE_COMPACT_RESPONSES]) {
     [FBConfiguration setShouldUseCompactResponses:[capabilities[FB_SETTING_USE_COMPACT_RESPONSES] boolValue]];
   }
@@ -104,8 +116,8 @@
   if (elementResponseAttributes) {
     [FBConfiguration setElementResponseAttributes:elementResponseAttributes];
   }
-  if (capabilities[FB_CAP_MAX_TYPING_FREQUNCY]) {
-    [FBConfiguration setMaxTypingFrequency:[capabilities[FB_CAP_MAX_TYPING_FREQUNCY] unsignedIntegerValue]];
+  if (capabilities[FB_CAP_MAX_TYPING_FREQUENCY]) {
+    [FBConfiguration setMaxTypingFrequency:[capabilities[FB_CAP_MAX_TYPING_FREQUENCY] unsignedIntegerValue]];
   }
   if (capabilities[FB_CAP_USE_SINGLETON_TEST_MANAGER]) {
     [FBConfiguration setShouldUseSingletonTestManager:[capabilities[FB_CAP_USE_SINGLETON_TEST_MANAGER] boolValue]];
@@ -137,28 +149,71 @@
   }
 
   NSString *bundleID = capabilities[FB_CAP_BUNDLE_ID];
-  FBApplication *app = nil;
+  NSString *initialUrl = capabilities[FB_CAP_INITIAL_URL];
+  XCUIApplication *app = nil;
   if (bundleID != nil) {
-    app = [[FBApplication alloc] initWithBundleIdentifier:bundleID];
+    app = [[XCUIApplication alloc] initWithBundleIdentifier:bundleID];
     BOOL forceAppLaunch = YES;
     if (nil != capabilities[FB_CAP_FORCE_APP_LAUNCH]) {
       forceAppLaunch = [capabilities[FB_CAP_FORCE_APP_LAUNCH] boolValue];
     }
-    NSUInteger appState = [app fb_state];
-    BOOL isAppRunning = appState >= 2;
+    XCUIApplicationState appState = app.state;
+    BOOL isAppRunning = appState >= XCUIApplicationStateRunningBackground;
     if (!isAppRunning || (isAppRunning && forceAppLaunch)) {
       app.fb_shouldWaitForQuiescence = nil == capabilities[FB_CAP_SHOULD_WAIT_FOR_QUIESCENCE]
         || [capabilities[FB_CAP_SHOULD_WAIT_FOR_QUIESCENCE] boolValue];
       app.launchArguments = (NSArray<NSString *> *)capabilities[FB_CAP_ARGUMENTS] ?: @[];
       app.launchEnvironment = (NSDictionary <NSString *, NSString *> *)capabilities[FB_CAP_ENVIRNOMENT] ?: @{};
-      [app launch];
-      if (![app running]) {
+      if (nil != initialUrl) {
+        if (app.running) {
+          [app terminate];
+        }
+        id<FBResponsePayload> errorResponse = [self openDeepLink:initialUrl
+                                                 withApplication:bundleID
+                                                         timeout:capabilities[FB_CAP_APP_LAUNCH_STATE_TIMEOUT_SEC]];
+        if (nil != errorResponse) {
+          return errorResponse;
+        }
+      } else {
+        NSTimeInterval defaultTimeout = _XCTApplicationStateTimeout();
+        if (nil != capabilities[FB_CAP_APP_LAUNCH_STATE_TIMEOUT_SEC]) {
+          _XCTSetApplicationStateTimeout([capabilities[FB_CAP_APP_LAUNCH_STATE_TIMEOUT_SEC] doubleValue]);
+        }
+        @try {
+          [app launch];
+        } @catch (NSException *e) {
+          return FBResponseWithStatus([FBCommandStatus sessionNotCreatedError:e.reason traceback:nil]);
+        } @finally {
+          if (nil != capabilities[FB_CAP_APP_LAUNCH_STATE_TIMEOUT_SEC]) {
+            _XCTSetApplicationStateTimeout(defaultTimeout);
+          }
+        }
+      }
+      if (!app.running) {
         NSString *errorMsg = [NSString stringWithFormat:@"Cannot launch %@ application. Make sure the correct bundle identifier has been provided in capabilities and check the device log for possible crash report occurrences", bundleID];
         return FBResponseWithStatus([FBCommandStatus sessionNotCreatedError:errorMsg
                                                                   traceback:nil]);
       }
-    } else if (appState < 4 && !forceAppLaunch) {
-      [app fb_activate];
+    } else if (appState == XCUIApplicationStateRunningBackground && !forceAppLaunch) {
+      if (nil != initialUrl) {
+        id<FBResponsePayload> errorResponse = [self openDeepLink:initialUrl
+                                                 withApplication:bundleID
+                                                         timeout:nil];
+        if (nil != errorResponse) {
+          return errorResponse;
+        }
+      } else {
+        [app activate];
+      }
+    }
+  }
+
+  if (nil != initialUrl && nil == bundleID) {
+    id<FBResponsePayload> errorResponse = [self openDeepLink:initialUrl
+                                             withApplication:nil
+                                                     timeout:capabilities[FB_CAP_APP_LAUNCH_STATE_TIMEOUT_SEC]];
+    if (nil != errorResponse) {
+      return errorResponse;
     }
   }
 
@@ -236,6 +291,11 @@
   if (nil != upgradeTimestamp && upgradeTimestamp.length > 0) {
     [buildInfo setObject:upgradeTimestamp forKey:@"upgradedAt"];
   }
+  NSDictionary *infoDict = [[NSBundle bundleForClass:self.class] infoDictionary];
+  NSString *version = [infoDict objectForKey:@"CFBundleShortVersionString"];
+  if (nil != version) {
+    [buildInfo setObject:version forKey:@"version"];
+  }
 
   return FBResponseWithObject(
     @{
@@ -256,14 +316,15 @@
 #endif
           @"ip" : [XCUIDevice sharedDevice].fb_wifiIPAddress ?: [NSNull null]
         },
-      @"build" : buildInfo.copy
+      @"build" : buildInfo.copy,
+      @"device": [self.class deviceNameByUserInterfaceIdiom:[UIDevice currentDevice].userInterfaceIdiom]
     }
   );
 }
 
 + (id<FBResponsePayload>)handleGetHealthCheck:(FBRouteRequest *)request
 {
-  if (![[XCUIDevice sharedDevice] fb_healthCheckWithApplication:[FBApplication fb_activeApplication]]) {
+  if (![[XCUIDevice sharedDevice] fb_healthCheckWithApplication:[XCUIApplication fb_activeApplication]]) {
     return FBResponseWithUnknownErrorFormat(@"Health check failed");
   }
   return FBResponseWithOK();
@@ -278,11 +339,12 @@
       FB_SETTING_MJPEG_SERVER_SCREENSHOT_QUALITY: @([FBConfiguration mjpegServerScreenshotQuality]),
       FB_SETTING_MJPEG_SERVER_FRAMERATE: @([FBConfiguration mjpegServerFramerate]),
       FB_SETTING_MJPEG_SCALING_FACTOR: @([FBConfiguration mjpegScalingFactor]),
+      FB_SETTING_MJPEG_FIX_ORIENTATION: @([FBConfiguration mjpegShouldFixOrientation]),
       FB_SETTING_SCREENSHOT_QUALITY: @([FBConfiguration screenshotQuality]),
       FB_SETTING_KEYBOARD_AUTOCORRECTION: @([FBConfiguration keyboardAutocorrection]),
       FB_SETTING_KEYBOARD_PREDICTION: @([FBConfiguration keyboardPrediction]),
-      FB_SETTING_CUSTOM_SNAPSHOT_TIMEOUT: @([FBConfiguration customSnapshotTimeout]),
       FB_SETTING_SNAPSHOT_MAX_DEPTH: @([FBConfiguration snapshotMaxDepth]),
+      FB_SETTING_SNAPSHOT_MAX_CHILDREN: @([FBConfiguration snapshotMaxChildren]),
       FB_SETTING_USE_FIRST_MATCH: @([FBConfiguration useFirstMatch]),
       FB_SETTING_WAIT_FOR_IDLE_TIMEOUT: @([FBConfiguration waitForIdleTimeout]),
       FB_SETTING_ANIMATION_COOL_OFF_TIMEOUT: @([FBConfiguration animationCoolOffTimeout]),
@@ -290,10 +352,19 @@
       FB_SETTING_REDUCE_MOTION: @([FBConfiguration reduceMotionEnabled]),
       FB_SETTING_DEFAULT_ACTIVE_APPLICATION: request.session.defaultActiveApplication,
       FB_SETTING_ACTIVE_APP_DETECTION_POINT: FBActiveAppDetectionPoint.sharedInstance.stringCoordinates,
-      FB_SETTING_INCLUDE_NON_MODAL_ELEMENTS: @([FBConfiguration includeNonModalElements]),
       FB_SETTING_ACCEPT_ALERT_BUTTON_SELECTOR: FBConfiguration.acceptAlertButtonSelector,
       FB_SETTING_DISMISS_ALERT_BUTTON_SELECTOR: FBConfiguration.dismissAlertButtonSelector,
+      FB_SETTING_AUTO_CLICK_ALERT_SELECTOR: FBConfiguration.autoClickAlertSelector,
       FB_SETTING_DEFAULT_ALERT_ACTION: request.session.defaultAlertAction ?: @"",
+      FB_SETTING_MAX_TYPING_FREQUENCY: @([FBConfiguration maxTypingFrequency]),
+      FB_SETTING_RESPECT_SYSTEM_ALERTS: @([FBConfiguration shouldRespectSystemAlerts]),
+      FB_SETTING_USE_CLEAR_TEXT_SHORTCUT: @([FBConfiguration useClearTextShortcut]),
+      FB_SETTING_INCLUDE_HITTABLE_IN_PAGE_SOURCE: @([FBConfiguration includeHittableInPageSource]),
+      FB_SETTING_INCLUDE_NATIVE_FRAME_IN_PAGE_SOURCE: @([FBConfiguration includeNativeFrameInPageSource]),
+      FB_SETTING_INCLUDE_MIN_MAX_VALUE_IN_PAGE_SOURCE: @([FBConfiguration includeMinMaxValueInPageSource]),
+      FB_SETTING_INCLUDE_CUSTOM_ACTIONS_IN_PAGE_SOURCE: @([FBConfiguration includeCustomActionsInPageSource]),
+      FB_SETTING_ENFORCE_CUSTOM_SNAPSHOTS: @([FBConfiguration enforceCustomSnapshots]),
+      FB_SETTING_LIMIT_XPATH_CONTEXT_SCOPE: @([FBConfiguration limitXpathContextScope]),
 #if !TARGET_OS_TV
       FB_SETTING_SCREENSHOT_ORIENTATION: [FBConfiguration humanReadableScreenshotOrientation],
 #endif
@@ -323,7 +394,10 @@
     [FBConfiguration setScreenshotQuality:[[settings objectForKey:FB_SETTING_SCREENSHOT_QUALITY] unsignedIntegerValue]];
   }
   if (nil != [settings objectForKey:FB_SETTING_MJPEG_SCALING_FACTOR]) {
-    [FBConfiguration setMjpegScalingFactor:[[settings objectForKey:FB_SETTING_MJPEG_SCALING_FACTOR] unsignedIntegerValue]];
+    [FBConfiguration setMjpegScalingFactor:[[settings objectForKey:FB_SETTING_MJPEG_SCALING_FACTOR] floatValue]];
+  }
+  if (nil != [settings objectForKey:FB_SETTING_MJPEG_FIX_ORIENTATION]) {
+    [FBConfiguration setMjpegShouldFixOrientation:[[settings objectForKey:FB_SETTING_MJPEG_FIX_ORIENTATION] boolValue]];
   }
   if (nil != [settings objectForKey:FB_SETTING_KEYBOARD_AUTOCORRECTION]) {
     [FBConfiguration setKeyboardAutocorrection:[[settings objectForKey:FB_SETTING_KEYBOARD_AUTOCORRECTION] boolValue]];
@@ -331,15 +405,14 @@
   if (nil != [settings objectForKey:FB_SETTING_KEYBOARD_PREDICTION]) {
     [FBConfiguration setKeyboardPrediction:[[settings objectForKey:FB_SETTING_KEYBOARD_PREDICTION] boolValue]];
   }
-  // SNAPSHOT_TIMEOUT setting is deprecated. Please use CUSTOM_SNAPSHOT_TIMEOUT instead
-  if (nil != [settings objectForKey:FB_SETTING_SNAPSHOT_TIMEOUT]) {
-    [FBConfiguration setCustomSnapshotTimeout:[[settings objectForKey:FB_SETTING_SNAPSHOT_TIMEOUT] doubleValue]];
-  }
-  if (nil != [settings objectForKey:FB_SETTING_CUSTOM_SNAPSHOT_TIMEOUT]) {
-    [FBConfiguration setCustomSnapshotTimeout:[[settings objectForKey:FB_SETTING_CUSTOM_SNAPSHOT_TIMEOUT] doubleValue]];
+  if (nil != [settings objectForKey:FB_SETTING_RESPECT_SYSTEM_ALERTS]) {
+    [FBConfiguration setShouldRespectSystemAlerts:[[settings objectForKey:FB_SETTING_RESPECT_SYSTEM_ALERTS] boolValue]];
   }
   if (nil != [settings objectForKey:FB_SETTING_SNAPSHOT_MAX_DEPTH]) {
     [FBConfiguration setSnapshotMaxDepth:[[settings objectForKey:FB_SETTING_SNAPSHOT_MAX_DEPTH] intValue]];
+  }
+  if (nil != [settings objectForKey:FB_SETTING_SNAPSHOT_MAX_CHILDREN]) {
+    [FBConfiguration setSnapshotMaxChildren:[[settings objectForKey:FB_SETTING_SNAPSHOT_MAX_CHILDREN] intValue]];
   }
   if (nil != [settings objectForKey:FB_SETTING_USE_FIRST_MATCH]) {
     [FBConfiguration setUseFirstMatch:[[settings objectForKey:FB_SETTING_USE_FIRST_MATCH] boolValue]];
@@ -357,14 +430,8 @@
     NSError *error;
     if (![FBActiveAppDetectionPoint.sharedInstance setCoordinatesWithString:(NSString *)[settings objectForKey:FB_SETTING_ACTIVE_APP_DETECTION_POINT]
                                                                       error:&error]) {
-      return FBResponseWithStatus([FBCommandStatus invalidArgumentErrorWithMessage:error.description traceback:nil]);
-    }
-  }
-  if (nil != [settings objectForKey:FB_SETTING_INCLUDE_NON_MODAL_ELEMENTS]) {
-    if ([XCUIElement fb_supportsNonModalElementsInclusion]) {
-      [FBConfiguration setIncludeNonModalElements:[[settings objectForKey:FB_SETTING_INCLUDE_NON_MODAL_ELEMENTS] boolValue]];
-    } else {
-      [FBLogger logFmt:@"'%@' settings value cannot be assigned, because non modal elements inclusion is not supported by the current iOS SDK", FB_SETTING_INCLUDE_NON_MODAL_ELEMENTS];
+      return FBResponseWithStatus([FBCommandStatus invalidArgumentErrorWithMessage:error.localizedDescription
+                                                                         traceback:nil]);
     }
   }
   if (nil != [settings objectForKey:FB_SETTING_ACCEPT_ALERT_BUTTON_SELECTOR]) {
@@ -372,6 +439,13 @@
   }
   if (nil != [settings objectForKey:FB_SETTING_DISMISS_ALERT_BUTTON_SELECTOR]) {
     [FBConfiguration setDismissAlertButtonSelector:(NSString *)[settings objectForKey:FB_SETTING_DISMISS_ALERT_BUTTON_SELECTOR]];
+  }
+  if (nil != [settings objectForKey:FB_SETTING_AUTO_CLICK_ALERT_SELECTOR]) {
+    FBCommandStatus *status = [self.class configureAutoClickAlertWithSelector:settings[FB_SETTING_AUTO_CLICK_ALERT_SELECTOR]
+                                                                   forSession:request.session];
+    if (status.hasError) {
+      return FBResponseWithStatus(status);
+    }
   }
   if (nil != [settings objectForKey:FB_SETTING_WAIT_FOR_IDLE_TIMEOUT]) {
     [FBConfiguration setWaitForIdleTimeout:[[settings objectForKey:FB_SETTING_WAIT_FOR_IDLE_TIMEOUT] doubleValue]];
@@ -382,16 +456,39 @@
   if ([[settings objectForKey:FB_SETTING_DEFAULT_ALERT_ACTION] isKindOfClass:NSString.class]) {
     request.session.defaultAlertAction = [settings[FB_SETTING_DEFAULT_ALERT_ACTION] lowercaseString];
   }
+  if (nil != [settings objectForKey:FB_SETTING_MAX_TYPING_FREQUENCY]) {
+    [FBConfiguration setMaxTypingFrequency:[[settings objectForKey:FB_SETTING_MAX_TYPING_FREQUENCY] unsignedIntegerValue]];
+  }
+  if (nil != [settings objectForKey:FB_SETTING_USE_CLEAR_TEXT_SHORTCUT]) {
+    [FBConfiguration setUseClearTextShortcut:[[settings objectForKey:FB_SETTING_USE_CLEAR_TEXT_SHORTCUT] boolValue]];
+  }
+  if (nil != [settings objectForKey:FB_SETTING_INCLUDE_HITTABLE_IN_PAGE_SOURCE]) {
+    [FBConfiguration setIncludeHittableInPageSource:[[settings objectForKey:FB_SETTING_INCLUDE_HITTABLE_IN_PAGE_SOURCE] boolValue]];
+  }
+  if (nil != [settings objectForKey:FB_SETTING_INCLUDE_NATIVE_FRAME_IN_PAGE_SOURCE]) {
+    [FBConfiguration setIncludeNativeFrameInPageSource:[[settings objectForKey:FB_SETTING_INCLUDE_NATIVE_FRAME_IN_PAGE_SOURCE] boolValue]];
+  }
+  if (nil != [settings objectForKey:FB_SETTING_INCLUDE_MIN_MAX_VALUE_IN_PAGE_SOURCE]) {
+    [FBConfiguration setIncludeMinMaxValueInPageSource:[[settings objectForKey:FB_SETTING_INCLUDE_MIN_MAX_VALUE_IN_PAGE_SOURCE] boolValue]];
+  }
+  if (nil != [settings objectForKey:FB_SETTING_INCLUDE_CUSTOM_ACTIONS_IN_PAGE_SOURCE]) {
+    [FBConfiguration setIncludeCustomActionsInPageSource:[[settings objectForKey:FB_SETTING_INCLUDE_CUSTOM_ACTIONS_IN_PAGE_SOURCE] boolValue]];
+  }
+  if (nil != [settings objectForKey:FB_SETTING_ENFORCE_CUSTOM_SNAPSHOTS]) {
+    [FBConfiguration setEnforceCustomSnapshots:[[settings objectForKey:FB_SETTING_ENFORCE_CUSTOM_SNAPSHOTS] boolValue]];
+  }
+  if (nil != [settings objectForKey:FB_SETTING_LIMIT_XPATH_CONTEXT_SCOPE]) {
+    [FBConfiguration setLimitXpathContextScope:[[settings objectForKey:FB_SETTING_LIMIT_XPATH_CONTEXT_SCOPE] boolValue]];
+  }
 
 #if !TARGET_OS_TV
   if (nil != [settings objectForKey:FB_SETTING_SCREENSHOT_ORIENTATION]) {
     NSError *error;
     if (![FBConfiguration setScreenshotOrientation:(NSString *)[settings objectForKey:FB_SETTING_SCREENSHOT_ORIENTATION]
                                              error:&error]) {
-      return FBResponseWithStatus([FBCommandStatus invalidArgumentErrorWithMessage:error.description traceback:nil]);
+      return FBResponseWithStatus([FBCommandStatus invalidArgumentErrorWithMessage:error.localizedDescription
+                                                                         traceback:nil]);
     }
-
-
   }
 #endif
 
@@ -401,6 +498,26 @@
 
 #pragma mark - Helpers
 
++ (FBCommandStatus *)configureAutoClickAlertWithSelector:(NSString *)selector
+                                              forSession:(FBSession *)session
+{
+  if (0 == [selector length]) {
+    [FBConfiguration setAutoClickAlertSelector:selector];
+    [session disableAlertsMonitor];
+    return [FBCommandStatus ok];
+  }
+
+  NSError *error;
+  FBClassChain *parsedChain = [FBClassChainQueryParser parseQuery:selector error:&error];
+  if (nil == parsedChain) {
+    return [FBCommandStatus invalidSelectorErrorWithMessage:error.localizedDescription
+                                                  traceback:nil];
+  }
+  [FBConfiguration setAutoClickAlertSelector:selector];
+  [session enableAlertsMonitor];
+  return [FBCommandStatus ok];
+}
+
 + (NSString *)buildTimestamp
 {
   return [NSString stringWithFormat:@"%@ %@",
@@ -409,6 +526,10 @@
   ];
 }
 
+/**
+ Return current session information.
+ This response does not have any active application information.
+*/
 + (NSDictionary *)sessionInformation
 {
   return
@@ -418,17 +539,61 @@
   };
 }
 
+/*
+ Return the device kind as lower case
+*/
++ (NSString *)deviceNameByUserInterfaceIdiom:(UIUserInterfaceIdiom) userInterfaceIdiom
+{
+  if (userInterfaceIdiom == UIUserInterfaceIdiomPad) {
+    return @"ipad";
+  } else if (userInterfaceIdiom == UIUserInterfaceIdiomTV) {
+    return @"apple tv";
+  } else if (userInterfaceIdiom == UIUserInterfaceIdiomPhone) {
+    return @"iphone";
+  }
+  // CarPlay, Mac, Vision UI or unknown are possible
+  return @"Unknown";
+
+}
+
 + (NSDictionary *)currentCapabilities
 {
-  FBApplication *application = [FBSession activeSession].activeApplication;
   return
   @{
-    @"device": ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad) ? @"ipad" : @"iphone",
-    @"sdkVersion": [[UIDevice currentDevice] systemVersion],
-    // @"browserName": application.label ?: [NSNull null],
-     @"browserName":  [NSNull null],
+    @"browserName":  [NSNull null],
     @"CFBundleIdentifier": application.bundleID ?: [NSNull null],
+    @"device": [self.class deviceNameByUserInterfaceIdiom:[UIDevice currentDevice].userInterfaceIdiom],
+    @"sdkVersion": [[UIDevice currentDevice] systemVersion]
   };
+}
+
++(nullable id<FBResponsePayload>)openDeepLink:(NSString *)initialUrl
+                              withApplication:(nullable NSString *)bundleID
+                                      timeout:(nullable NSNumber *)timeout
+{
+  NSError *openError;
+  NSTimeInterval defaultTimeout = _XCTApplicationStateTimeout();
+  if (nil != timeout) {
+    _XCTSetApplicationStateTimeout([timeout doubleValue]);
+  }
+  @try {
+    BOOL result = nil == bundleID
+      ? [XCUIDevice.sharedDevice fb_openUrl:initialUrl
+                                      error:&openError]
+      : [XCUIDevice.sharedDevice fb_openUrl:initialUrl
+                            withApplication:(id)bundleID
+                                      error:&openError];
+    if (result) {
+      return nil;
+    }
+    NSString *errorMsg = [NSString stringWithFormat:@"Cannot open the URL %@ with the %@ application. Original error: %@",
+                          initialUrl, bundleID ?: @"default", openError.localizedDescription];
+    return FBResponseWithStatus([FBCommandStatus sessionNotCreatedError:errorMsg traceback:nil]);
+  } @finally {
+    if (nil != timeout) {
+      _XCTSetApplicationStateTimeout(defaultTimeout);
+    }
+  }
 }
 
 @end

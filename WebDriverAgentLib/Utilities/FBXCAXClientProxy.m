@@ -3,50 +3,23 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "FBXCAXClientProxy.h"
 
-#import <objc/runtime.h>
-
 #import "FBXCAccessibilityElement.h"
-#import "FBConfiguration.h"
 #import "FBLogger.h"
 #import "FBMacros.h"
-#import "FBReflectionUtils.h"
-#import "XCAXClient_iOS.h"
+#import "XCAXClient_iOS+FBSnapshotReqParams.h"
 #import "XCUIDevice.h"
+#import "XCUIApplication.h"
 
 static id FBAXClient = nil;
 
-@implementation XCAXClient_iOS (WebDriverAgent)
+@interface FBXCAXClientProxy ()
 
-/**
- Parameters for traversing elements tree from parents to children while requesting XCElementSnapshot.
-
- @return dictionary with parameters for element's snapshot request
- */
-- (NSDictionary *)fb_getParametersForElementSnapshot
-{
-  return FBConfiguration.snapshotRequestParameters;
-}
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wobjc-load-method"
-
-+ (void)load
-{
-  static dispatch_once_t onceToken;
-  dispatch_once(&onceToken, ^{
-    SEL originalParametersSelector = @selector(defaultParameters);
-    SEL swizzledParametersSelector = @selector(fb_getParametersForElementSnapshot);
-    FBReplaceMethod([self class], originalParametersSelector, swizzledParametersSelector);
-  });
-}
-
-#pragma clang diagnostic pop
+@property (nonatomic) NSMutableDictionary<NSNumber *, XCUIApplication *> *appsCache;
 
 @end
 
@@ -58,6 +31,7 @@ static id FBAXClient = nil;
   static dispatch_once_t onceToken;
   dispatch_once(&onceToken, ^{
     instance = [[self alloc] init];
+    instance.appsCache = [NSMutableDictionary dictionary];
     FBAXClient = [XCUIDevice.sharedDevice accessibilityInterface];
   });
   return instance;
@@ -70,18 +44,12 @@ static id FBAXClient = nil;
 
 - (id<FBXCElementSnapshot>)snapshotForElement:(id<FBXCAccessibilityElement>)element
                                    attributes:(NSArray<NSString *> *)attributes
-                                     maxDepth:(nullable NSNumber *)maxDepth
+                                      inDepth:(BOOL)inDepth
                                         error:(NSError **)error
 {
-  NSMutableDictionary *parameters = [[NSMutableDictionary alloc] init];
-  // Mimicking XCTest framework behavior (this attribute is added by default unless it is an excludingNonModalElements query)
-  // See https://github.com/appium/WebDriverAgent/pull/523
-  if (SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"13.0")) {
-    parameters[@"snapshotKeyHonorModalViews"] = @(NO);
-  }
-  if (nil != maxDepth) {
-    [parameters addEntriesFromDictionary:self.defaultParameters];
-    parameters[FBSnapshotMaxDepthKey] = maxDepth;
+  NSMutableDictionary *parameters = [NSMutableDictionary dictionaryWithDictionary:self.defaultParameters];
+  if (!inDepth) {
+    parameters[FBSnapshotMaxDepthKey] = @1;
   }
 
   id result = [FBAXClient requestSnapshotForElement:element
@@ -115,20 +83,37 @@ static id FBAXClient = nil;
 
 - (NSDictionary *)attributesForElement:(id<FBXCAccessibilityElement>)element
                             attributes:(NSArray *)attributes
+                                 error:(NSError**)error;
 {
-  NSError *error = nil;
-  NSDictionary* result = [FBAXClient attributesForElement:element
-                                               attributes:attributes
-                                                    error:&error];
-  if (error) {
-    [FBLogger logFmt:@"Cannot retrieve element attribute(s) %@. Original error: %@", attributes, error.description];
-  }
-  return result;
+  return [FBAXClient attributesForElement:element
+                               attributes:attributes
+                                    error:error];
 }
 
 - (XCUIApplication *)monitoredApplicationWithProcessIdentifier:(int)pid
 {
-  return [[FBAXClient applicationProcessTracker] monitoredApplicationWithProcessIdentifier:pid];
+  NSMutableSet *terminatedAppIds = [NSMutableSet set];
+  for (NSNumber *appPid in self.appsCache) {
+    if (![self.appsCache[appPid] running]) {
+      [terminatedAppIds addObject:appPid];
+    }
+  }
+  for (NSNumber *appPid in terminatedAppIds) {
+    [self.appsCache removeObjectForKey:appPid];
+  }
+
+  XCUIApplication *result = [self.appsCache objectForKey:@(pid)];
+  if (nil != result) {
+    return result;
+  }
+
+  XCUIApplication *app = [[FBAXClient applicationProcessTracker]
+                          monitoredApplicationWithProcessIdentifier:pid];
+  if (nil == app) {
+    return nil;
+  }
+  [self.appsCache setObject:app forKey:@(pid)];
+  return app;
 }
 
 @end

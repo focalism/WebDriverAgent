@@ -3,21 +3,19 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "FBAlert.h"
 
-#import "FBApplication.h"
 #import "FBConfiguration.h"
 #import "FBErrorBuilder.h"
 #import "FBLogger.h"
 #import "FBXCElementSnapshotWrapper+Helpers.h"
 #import "FBXCodeCompatibility.h"
+#import "XCUIApplication.h"
 #import "XCUIApplication+FBAlert.h"
 #import "XCUIElement+FBClassChain.h"
-#import "XCUIElement+FBTap.h"
 #import "XCUIElement+FBTyping.h"
 #import "XCUIElement+FBUtilities.h"
 #import "XCUIElement+FBWebDriverAttributes.h"
@@ -51,7 +49,7 @@
     if (nil == self.alertElement) {
       return NO;
     }
-    [self.alertElement fb_takeSnapshot];
+    [self.alertElement fb_customSnapshot];
     return YES;
   } @catch (NSException *) {
     return NO;
@@ -83,7 +81,7 @@
   }
 
   NSMutableArray<NSString *> *resultText = [NSMutableArray array];
-  id<FBXCElementSnapshot> snapshot = self.alertElement.lastSnapshot;
+  id<FBXCElementSnapshot> snapshot = self.alertElement.lastSnapshot ?: [self.alertElement fb_customSnapshot];
   BOOL isSafariAlert = [self.class isSafariWebAlertWithSnapshot:snapshot];
   [snapshot enumerateDescendantsUsingBlock:^(id<FBXCElementSnapshot> descendant) {
     XCUIElementType elementType = descendant.elementType;
@@ -146,7 +144,8 @@
   }
 
   NSMutableArray<NSString *> *labels = [NSMutableArray array];
-  [self.alertElement.lastSnapshot enumerateDescendantsUsingBlock:^(id<FBXCElementSnapshot> descendant) {
+  id<FBXCElementSnapshot> alertSnapshot = self.alertElement.lastSnapshot ?: [self.alertElement fb_customSnapshot];
+  [alertSnapshot enumerateDescendantsUsingBlock:^(id<FBXCElementSnapshot> descendant) {
     if (descendant.elementType != XCUIElementTypeButton) {
       return;
     }
@@ -164,7 +163,7 @@
     return [self notPresentWithError:error];
   }
 
-  id<FBXCElementSnapshot> alertSnapshot = self.alertElement.lastSnapshot;
+  id<FBXCElementSnapshot> alertSnapshot = self.alertElement.lastSnapshot ?: [self.alertElement fb_customSnapshot];
   XCUIElement *acceptButton = nil;
   if (FBConfiguration.acceptAlertButtonSelector.length) {
     NSString *errorReason = nil;
@@ -190,11 +189,13 @@
       ? buttons.lastObject
       : buttons.firstObject;
   }
-  return nil == acceptButton
-    ? [[[FBErrorBuilder builder]
+  if (nil == acceptButton) {
+    return [[[FBErrorBuilder builder]
         withDescriptionFormat:@"Failed to find accept button for alert: %@", self.alertElement]
-     buildError:error]
-    : [acceptButton fb_tapWithError:error];
+       buildError:error];
+  }
+  [acceptButton tap];
+  return YES;
 }
 
 - (BOOL)dismissWithError:(NSError **)error
@@ -203,7 +204,7 @@
     return [self notPresentWithError:error];
   }
 
-  id<FBXCElementSnapshot> alertSnapshot = self.alertElement.lastSnapshot;
+  id<FBXCElementSnapshot> alertSnapshot = self.alertElement.lastSnapshot ?: [self.alertElement fb_customSnapshot];
   XCUIElement *dismissButton = nil;
   if (FBConfiguration.dismissAlertButtonSelector.length) {
     NSString *errorReason = nil;
@@ -230,11 +231,13 @@
       : buttons.lastObject;
   }
 
-  return nil == dismissButton
-    ? [[[FBErrorBuilder builder]
+  if (nil == dismissButton) {
+    return [[[FBErrorBuilder builder]
         withDescriptionFormat:@"Failed to find dismiss button for alert: %@", self.alertElement]
-     buildError:error]
-    : [dismissButton fb_tapWithError:error];
+            buildError:error];
+  }
+  [dismissButton tap];
+  return YES;
 }
 
 - (BOOL)clickAlertButton:(NSString *)label error:(NSError **)error
@@ -245,27 +248,24 @@
 
   NSPredicate *predicate = [NSPredicate predicateWithFormat:@"label == %@", label];
   XCUIElement *requestedButton = [[self.alertElement descendantsMatchingType:XCUIElementTypeButton]
-                                  matchingPredicate:predicate].fb_firstMatch;
+                                  matchingPredicate:predicate].allElementsBoundByIndex.firstObject;
   if (!requestedButton) {
     return [[[FBErrorBuilder builder]
              withDescriptionFormat:@"Failed to find button with label '%@' for alert: %@", label, self.alertElement]
             buildError:error];
   }
-  return [requestedButton fb_tapWithError:error];
+  [requestedButton tap];
+  return YES;
 }
 
 - (XCUIElement *)alertElement
 {
   if (nil == self.element) {
-    self.element = self.application.fb_alertElement;
-    if (nil == self.element) {
-      FBApplication *systemApp = FBApplication.fb_systemApplication;
-      for (FBApplication *activeApp in FBApplication.fb_activeApplications) {
-        if (systemApp.processID == activeApp.processID) {
-          self.element = activeApp.fb_alertElement;
-          break;
-        }
-      }
+    XCUIApplication *systemApp = XCUIApplication.fb_systemApplication;
+    if ([systemApp fb_isSameAppAs:self.application]) {
+      self.element = systemApp.fb_alertElement;
+    } else {
+      self.element = systemApp.fb_alertElement ?: self.application.fb_alertElement;
     }
   }
   return self.element;

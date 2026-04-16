@@ -3,28 +3,20 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import <Foundation/Foundation.h>
 
-#import "AXSettings.h"
-#import "UIKeyboardImpl.h"
-#import "TIPreferencesController.h"
-
 NS_ASSUME_NONNULL_BEGIN
 
+extern NSString *const FBSnapshotMaxChildrenKey;
 extern NSString *const FBSnapshotMaxDepthKey;
 
 /**
  Accessors for Global Constants.
  */
 @interface FBConfiguration : NSObject
-
-/*! If set to YES will ask TestManagerDaemon for element visibility */
-+ (void)setShouldUseTestManagerForVisibilityDetection:(BOOL)value;
-+ (BOOL)shouldUseTestManagerForVisibilityDetection;
 
 /*! If set to YES will use compact (standards-compliant) & faster responses */
 + (void)setShouldUseCompactResponses:(BOOL)value;
@@ -49,17 +41,26 @@ extern NSString *const FBSnapshotMaxDepthKey;
 
 /*! Disables XCTest automated screenshots taking */
 + (void)disableScreenshots;
-
 /*! Enables XCTest automated screenshots taking */
 + (void)enableScreenshots;
+
+/*! Disables XCTest automated videos taking (iOS 17+) */
++ (void)disableScreenRecordings;
+/*! Enables XCTest automated videos taking  (iOS 17+) */
++ (void)enableScreenRecordings;
 
 /* The maximum typing frequency for all typing activities */
 + (void)setMaxTypingFrequency:(NSUInteger)value;
 + (NSUInteger)maxTypingFrequency;
++ (NSUInteger)defaultTypingFrequency;
 
 /* Use singleton test manager proxy */
 + (void)setShouldUseSingletonTestManager:(BOOL)value;
 + (BOOL)shouldUseSingletonTestManager;
+
+/* Enforces WDA to verify the presense of system alerts while checking for an active app */
++ (void)setShouldRespectSystemAlerts:(BOOL)value;
++ (BOOL)shouldRespectSystemAlerts;
 
 /**
  * Extract switch value from arguments
@@ -81,6 +82,16 @@ extern NSString *const FBSnapshotMaxDepthKey;
 + (void)setMjpegServerScreenshotQuality:(NSUInteger)quality;
 
 /**
+ Whether to apply orientation fixes to the streamed JPEG images.
+ This is an expensive operation and it is disabled by default, so screenshots
+ are returned in portrait, but their actual orientation value could still be found in the EXIF
+ metadata.
+ ! Enablement of this setting may lead to WDA process termination because of an excessive CPU usage.
+ */
++ (BOOL)mjpegShouldFixOrientation;
++ (void)setMjpegShouldFixOrientation:(BOOL)enabled;
+
+/**
  The framerate at which the background screenshots broadcaster should broadcast
  screenshots in range 1..60. The default value is 10 (Frames Per Second).
  Setting zero value will cause the framerate to be at its maximum possible value.
@@ -89,9 +100,17 @@ extern NSString *const FBSnapshotMaxDepthKey;
 + (void)setMjpegServerFramerate:(NSUInteger)framerate;
 
 /**
- The quality of phone display screenshots. The higher quality you set is the bigger screenshot size is.
- The highest quality value is 0 (lossless PNG). The lowest quality is 2 (highly compressed JPEG).
- The default quality value is 1 (high quality JPEG).
+ Whether to limit the XPath scope to descendant items only while performing a lookup
+ in an element context. Enabled by default. Being disabled, allows to use XPath locators
+ like ".." in order to match parent items of the current context root.
+ */
++ (BOOL)limitXpathContextScope;
++ (void)setLimitXpathContextScope:(BOOL)enabled;
+
+/**
+ The quality of display screenshots. The higher quality you set is the bigger screenshot size is.
+ The highest quality value is 0 (lossless PNG) or 3 (lossless HEIC). The lowest quality is 2 (highly compressed JPEG).
+ The default quality value is 3 (lossless HEIC).
  See https://developer.apple.com/documentation/xctest/xctimagequality?language=objc
  */
 + (NSUInteger)screenshotQuality;
@@ -103,15 +122,24 @@ extern NSString *const FBSnapshotMaxDepthKey;
 + (NSRange)bindingPortRange;
 
 /**
+ The IP address that the HTTP Server should bind to on launch.
+ Returns nil if not specified, which causes the server to listen on all interfaces.
+ */
++ (NSString * _Nullable)bindingIPAddress;
+
+/**
  The port number where the background screenshots broadcaster is supposed to run
  */
 + (NSInteger)mjpegServerPort;
 
 /**
- The scaling factor for frames of the mjpeg stream (Default values is 100 and does not perform scaling).
+ The scaling factor for frames of the mjpeg stream. The default (and maximum) value is 100,
+ which does not perform any scaling. The minimum value must be greater than zero.
+ ! Setting this to a value less than 100, especially together with orientation fixing enabled
+ ! may lead to WDA process termination because of an excessive CPU usage.
  */
-+ (NSUInteger)mjpegScalingFactor;
-+ (void)setMjpegScalingFactor:(NSUInteger)scalingFactor;
++ (CGFloat)mjpegScalingFactor;
++ (void)setMjpegScalingFactor:(CGFloat)scalingFactor;
 
 /**
  YES if verbose logging is enabled. NO otherwise.
@@ -160,14 +188,6 @@ typedef NS_ENUM(NSInteger, FBConfigurationKeyboardPreference) {
 + (FBConfigurationKeyboardPreference)keyboardPrediction;
 
 /**
- * The maximum time to wait until accessibility snapshot is taken
- *
- * @param timeout The number of float seconds to wait (15 seconds by default)
- */
-+ (void)setCustomSnapshotTimeout:(NSTimeInterval)timeout;
-+ (NSTimeInterval)customSnapshotTimeout;
-
-/**
  Sets maximum depth for traversing elements tree from parents to children while requesting XCElementSnapshot.
  Used to set maxDepth value in a dictionary provided by XCAXClient_iOS's method defaultParams.
  The original XCAXClient_iOS maxDepth value is set to INT_MAX, which is too big for some queries
@@ -184,11 +204,20 @@ typedef NS_ENUM(NSInteger, FBConfigurationKeyboardPreference) {
 + (int)snapshotMaxDepth;
 
 /**
- Returns parameters for traversing elements tree from parents to children while requesting XCElementSnapshot.
+ Sets the maximum number of element children to traverse in each snapshot
+ while requesting XCElementSnapshot.
+ Used to set the `maxChildren` value in a dictionary provided by
+ XCAXClient_iOS's `defaultParameters` method.
+ The original XCAXClient_iOS `maxChildren` value is `INT_MAX`.
 
- @return dictionary with parameters for element's snapshot request
-*/
-+ (NSDictionary *)snapshotRequestParameters;
+ @param maxChildren The number of maximum element children for traversing elements tree
+ */
++ (void)setSnapshotMaxChildren:(int)maxChildren;
+
+/**
+  @return The maximum number of element children for traversing elements tree
+ */
++ (int)snapshotMaxChildren;
 
 /**
  * Whether to use fast search result matching while searching for elements.
@@ -244,17 +273,6 @@ typedef NS_ENUM(NSInteger, FBConfigurationKeyboardPreference) {
 + (NSTimeInterval)animationCoolOffTimeout;
 
 /**
- Enforces the page hierarchy to include non modal elements,
- like Contacts. By default such elements are not present there.
- See https://github.com/appium/appium/issues/13227
-
- @param isEnabled Set to YES in order to enable non modal elements inclusion.
- Setting this value to YES will have no effect if the current iOS SDK does not support such feature.
- */
-+ (void)setIncludeNonModalElements:(BOOL)isEnabled;
-+ (BOOL)includeNonModalElements;
-
-/**
  Sets custom class chain locators for accept/dismiss alert buttons location.
  This might be useful if the default buttons detection algorithm fails to determine alert buttons properly
  when defaultAlertAction is set.
@@ -271,6 +289,21 @@ typedef NS_ENUM(NSInteger, FBConfigurationKeyboardPreference) {
 + (NSString *)acceptAlertButtonSelector;
 + (void)setDismissAlertButtonSelector:(NSString *)classChainSelector;
 + (NSString *)dismissAlertButtonSelector;
+
+/**
+ Sets class chain selector to apply for an automated alert click
+ */
++ (void)setAutoClickAlertSelector:(NSString *)classChainSelector;
++ (NSString *)autoClickAlertSelector;
+
+/**
+ * Whether to use HIDEvent for text clear.
+ * By default this is enabled and HIDEvent is used for text clear.
+ *
+ * @param enabled Either YES or NO
+ */
++ (void)setUseClearTextShortcut:(BOOL)enabled;
++ (BOOL)useClearTextShortcut;
 
 #if !TARGET_OS_TV
 /**
@@ -300,6 +333,72 @@ typedef NS_ENUM(NSInteger, FBConfigurationKeyboardPreference) {
 + (NSString *)humanReadableScreenshotOrientation;
 
 #endif
+
+/**
+ Resets all session-specific settings to their default values
+ */
++ (void)resetSessionSettings;
+
+/**
+ * Whether to calculate `hittable` attribute using native APIs
+ * instead of legacy heuristics.
+ * This flag improves accuracy, but may affect performance.
+ * Disabled by default.
+ *
+ * @param enabled Either YES or NO
+ */
++ (void)setIncludeHittableInPageSource:(BOOL)enabled;
++ (BOOL)includeHittableInPageSource;
+
+/**
+ * Whether to include `nativeFrame` attribute in the XML page source.
+ *
+ * When enabled, the XML representation will contain the precise rendered
+ * frame of the UI element.
+ *
+ * This value is more accurate than the legacy `wdFrame`, which applies rounding
+ * and may introduce inconsistencies in size and position calculations.
+ *
+ * The value is disabled by default to avoid potential performance overhead.
+ *
+ * @param enabled Either YES or NO
+ */
++ (void)setIncludeNativeFrameInPageSource:(BOOL)enabled;
++ (BOOL)includeNativeFrameInPageSource;
+
+/**
+ * Whether to include `minValue`/`maxValue` attributes in the page source.
+ * These attributes are retrieved from native element snapshots and represent
+ * value boundaries for elements like sliders or progress indicators.
+ * This may affect performance if used on many elements.
+ * Disabled by default.
+ *
+ * @param enabled Either YES or NO
+ */
++ (void)setIncludeMinMaxValueInPageSource:(BOOL)enabled;
++ (BOOL)includeMinMaxValueInPageSource;
+
+/**
+ * Whether to include `customActions` attribute in the XML page source.
+ * Custom actions represent accessibility actions available on UI elements.
+ * This may affect performance if used on many elements.
+ * Disabled by default.
+ *
+ * @param enabled Either YES or NO
+ */
++ (void)setIncludeCustomActionsInPageSource:(BOOL)enabled;
++ (BOOL)includeCustomActionsInPageSource;
+
+/**
+ * Whether to enforce the use of custom snapshots instead of standard snapshots.
+ * When enabled, fb_customSnapshot is always invoked instead of fb_standardSnapshot
+ * for XPath tree building and element attributes fetching.
+ * Disabled by default.
+ *
+ * @param enabled Either YES or NO
+ */
++ (void)setEnforceCustomSnapshots:(BOOL)enabled;
++ (BOOL)enforceCustomSnapshots;
 
 @end
 

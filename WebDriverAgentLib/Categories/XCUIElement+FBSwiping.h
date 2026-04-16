@@ -3,8 +3,7 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 #import <XCTest/XCTest.h>
 
@@ -21,5 +20,19 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)fb_swipeWithDirection:(NSString *)direction velocity:(nullable NSNumber*)velocity;
 
 @end
+
+#if !TARGET_OS_TV
+@interface XCUICoordinate (FBSwiping)
+
+/**
+ * Performs swipe gesture on the coordinate
+ *
+ * @param direction Swipe direction. The following values are supported: up, down, left and right
+ * @param velocity Swipe speed in pixels per second
+ */
+- (void)fb_swipeWithDirection:(NSString *)direction velocity:(nullable NSNumber*)velocity;
+
+@end
+#endif
 
 NS_ASSUME_NONNULL_END

@@ -3,17 +3,22 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "FBConfiguration.h"
 
+#import "AXSettings.h"
+#import "UIKeyboardImpl.h"
+#import "TIPreferencesController.h"
+
 #include <dlfcn.h>
+#include <limits.h>
 #import <UIKit/UIKit.h>
 
 #include "TargetConditionals.h"
 #import "FBXCodeCompatibility.h"
+#import "XCAXClient_iOS+FBSnapshotReqParams.h"
 #import "XCTestPrivateSymbols.h"
 #import "XCTestConfiguration.h"
 #import "XCUIApplication+FBUIInterruptions.h"
@@ -28,45 +33,50 @@ static NSString *const FBKeyboardAutocorrectionKey = @"KeyboardAutocorrection";
 static NSString *const FBKeyboardPredictionKey = @"KeyboardPrediction";
 static NSString *const axSettingsClassName = @"AXSettings";
 
-static BOOL FBShouldUseTestManagerForVisibilityDetection = NO;
 static BOOL FBShouldUseSingletonTestManager = YES;
-static BOOL FBShouldUseCompactResponses = YES;
-static BOOL FBShouldTerminateApp = YES;
-static NSString *FBElementResponseAttributes = @"type,label";
-static NSUInteger FBMaxTypingFrequency = 60;
+static BOOL FBShouldRespectSystemAlerts = NO;
+
+static CGFloat FBMjpegScalingFactor = 100.0;
+static BOOL FBMjpegShouldFixOrientation = NO;
 static NSUInteger FBMjpegServerScreenshotQuality = 25;
 static NSUInteger FBMjpegServerFramerate = 10;
-static NSUInteger FBScreenshotQuality = 1;
-static NSUInteger FBMjpegScalingFactor = 100;
-static NSTimeInterval FBCustomSnapshotTimeout = 15.;
-static BOOL FBShouldUseFirstMatch = YES;
-static BOOL FBShouldBoundElementsByIndex = NO;
-// This is diabled by default because enabling it prevents the accessbility snapshot to be taken
-// (it always errors with kxIllegalArgument error)
-static BOOL FBIncludeNonModalElements = NO;
-static NSString *FBAcceptAlertButtonSelector = @"";
-static NSString *FBDismissAlertButtonSelector = @"";
-NSString *const FBSnapshotMaxDepthKey = @"maxDepth";
-static NSMutableDictionary *FBSnapshotRequestParameters;
-//static NSTimeInterval FBWaitForIdleTimeout = 10.;
-static NSTimeInterval FBWaitForIdleTimeout = 0.;
-//static NSTimeInterval FBAnimationCoolOffTimeout = 2.;
-static NSTimeInterval FBAnimationCoolOffTimeout = 0.;
 
+// Session-specific settings
+static BOOL FBShouldTerminateApp;
+static NSNumber* FBMaxTypingFrequency;
+static NSUInteger FBScreenshotQuality;
+static BOOL FBShouldUseFirstMatch;
+static BOOL FBShouldBoundElementsByIndex;
+static NSString *FBAcceptAlertButtonSelector;
+static NSString *FBDismissAlertButtonSelector;
+static NSString *FBAutoClickAlertSelector;
+static NSTimeInterval FBWaitForIdleTimeout;
+static NSTimeInterval FBAnimationCoolOffTimeout;
+static BOOL FBShouldUseCompactResponses;
+static NSString *FBElementResponseAttributes;
+static BOOL FBUseClearTextShortcut;
+static BOOL FBLimitXpathContextScope = YES;
 #if !TARGET_OS_TV
-static UIInterfaceOrientation FBScreenshotOrientation = UIInterfaceOrientationUnknown;
+static UIInterfaceOrientation FBScreenshotOrientation;
 #endif
+static BOOL FBShouldIncludeHittableInPageSource = NO;
+static BOOL FBShouldIncludeNativeFrameInPageSource = NO;
+static BOOL FBShouldIncludeMinMaxValueInPageSource = NO;
+static BOOL FBShouldIncludeCustomActionsInPageSource = NO;
+static BOOL FBShouldEnforceCustomSnapshots = NO;
 
 @implementation FBConfiguration
 
++ (NSUInteger)defaultTypingFrequency
+{
+  NSInteger defaultFreq = [[NSUserDefaults standardUserDefaults]
+                           integerForKey:@"com.apple.xctest.iOSMaximumTypingFrequency"];
+  return defaultFreq > 0 ? defaultFreq : 60;
+}
+
 + (void)initialize
 {
-  FBSnapshotRequestParameters = [NSMutableDictionary dictionaryWithDictionary:@{
-    @"maxArrayCount": @INT_MAX,
-    @"maxChildren": @INT_MAX,
-    FBSnapshotMaxDepthKey: @50, // 50 should be enough for the majority of the cases. The performance is acceptable for values up to 100.
-    @"traverseFromParentsToChildren": @1
-  }];
+  [FBConfiguration resetSessionSettings];
 }
 
 #pragma mark Public
@@ -102,6 +112,16 @@ static UIInterfaceOrientation FBScreenshotOrientation = UIInterfaceOrientationUn
   [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"DisableScreenshots"];
 }
 
++ (void)disableScreenRecordings
+{
+  [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"DisableDiagnosticScreenRecordings"];
+}
+
++ (void)enableScreenRecordings
+{
+  [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"DisableDiagnosticScreenRecordings"];
+}
+
 + (NSRange)bindingPortRange
 {
   // 'WebDriverAgent --port 8080' can be passed via the arguments to the process
@@ -118,12 +138,23 @@ static UIInterfaceOrientation FBScreenshotOrientation = UIInterfaceOrientationUn
   return NSMakeRange(DefaultStartingPort, DefaultPortRange);
 }
 
++ (NSString *)bindingIPAddress
+{
+  // Existence of USE_IP in the environment allows specifying which interface to bind to
+  if (NSProcessInfo.processInfo.environment[@"USE_IP"] &&
+      [NSProcessInfo.processInfo.environment[@"USE_IP"] length] > 0) {
+    return NSProcessInfo.processInfo.environment[@"USE_IP"];
+  }
+
+  return nil;
+}
+
 + (NSInteger)mjpegServerPort
 {
   if (self.mjpegServerPortFromArguments != NSNotFound) {
     return self.mjpegServerPortFromArguments;
   }
-  
+
   if (NSProcessInfo.processInfo.environment[@"MJPEG_SERVER_PORT"] &&
       [NSProcessInfo.processInfo.environment[@"MJPEG_SERVER_PORT"] length] > 0) {
     return [NSProcessInfo.processInfo.environment[@"MJPEG_SERVER_PORT"] integerValue];
@@ -132,28 +163,27 @@ static UIInterfaceOrientation FBScreenshotOrientation = UIInterfaceOrientationUn
   return DefaultMjpegServerPort;
 }
 
-+ (NSUInteger)mjpegScalingFactor
++ (CGFloat)mjpegScalingFactor
 {
   return FBMjpegScalingFactor;
 }
 
-+ (void)setMjpegScalingFactor:(NSUInteger)scalingFactor {
++ (void)setMjpegScalingFactor:(CGFloat)scalingFactor {
   FBMjpegScalingFactor = scalingFactor;
+}
+
++ (BOOL)mjpegShouldFixOrientation
+{
+  return FBMjpegShouldFixOrientation;
+}
+
++ (void)setMjpegShouldFixOrientation:(BOOL)enabled {
+  FBMjpegShouldFixOrientation = enabled;
 }
 
 + (BOOL)verboseLoggingEnabled
 {
   return [NSProcessInfo.processInfo.environment[@"VERBOSE_LOGGING"] boolValue];
-}
-
-+ (void)setShouldUseTestManagerForVisibilityDetection:(BOOL)value
-{
-  FBShouldUseTestManagerForVisibilityDetection = value;
-}
-
-+ (BOOL)shouldUseTestManagerForVisibilityDetection
-{
-  return FBShouldUseTestManagerForVisibilityDetection;
 }
 
 + (void)setShouldUseCompactResponses:(BOOL)value
@@ -188,12 +218,17 @@ static UIInterfaceOrientation FBScreenshotOrientation = UIInterfaceOrientationUn
 
 + (void)setMaxTypingFrequency:(NSUInteger)value
 {
-  FBMaxTypingFrequency = value;
+  FBMaxTypingFrequency = @(value);
 }
 
 + (NSUInteger)maxTypingFrequency
 {
-  return FBMaxTypingFrequency;
+  if (nil == FBMaxTypingFrequency) {
+    return [self defaultTypingFrequency];
+  }
+  return FBMaxTypingFrequency.integerValue <= 0
+    ? [self defaultTypingFrequency]
+    : FBMaxTypingFrequency.integerValue;
 }
 
 + (void)setShouldUseSingletonTestManager:(BOOL)value
@@ -283,9 +318,7 @@ static UIInterfaceOrientation FBScreenshotOrientation = UIInterfaceOrientationUn
 
   // To dismiss keyboard tutorial on iOS 11+ (iPad)
   if ([controller respondsToSelector:@selector(setValue:forPreferenceKey:)]) {
-    if (isSDKVersionGreaterThanOrEqualTo(@"11.0")) {
-      [controller setValue:@YES forPreferenceKey:@"DidShowGestureKeyboardIntroduction"];
-    }
+    [controller setValue:@YES forPreferenceKey:@"DidShowGestureKeyboardIntroduction"];
     if (isSDKVersionGreaterThanOrEqualTo(@"13.0")) {
       [controller setValue:@YES forPreferenceKey:@"DidShowContinuousPathIntroduction"];
     }
@@ -331,29 +364,34 @@ static UIInterfaceOrientation FBScreenshotOrientation = UIInterfaceOrientationUn
   [self configureKeyboardsPreference:isEnabled forPreferenceKey:FBKeyboardPredictionKey];
 }
 
-+ (void)setCustomSnapshotTimeout:(NSTimeInterval)timeout
-{
-  FBCustomSnapshotTimeout = timeout;
-}
-
-+ (NSTimeInterval)customSnapshotTimeout
-{
-  return FBCustomSnapshotTimeout;
-}
-
 + (void)setSnapshotMaxDepth:(int)maxDepth
 {
-  FBSnapshotRequestParameters[FBSnapshotMaxDepthKey] = @(maxDepth);
+  FBSetCustomParameterForElementSnapshot(FBSnapshotMaxDepthKey, @(maxDepth));
 }
 
 + (int)snapshotMaxDepth
 {
-  return [FBSnapshotRequestParameters[FBSnapshotMaxDepthKey] intValue];
+  return [FBGetCustomParameterForElementSnapshot(FBSnapshotMaxDepthKey) intValue];
 }
 
-+ (NSDictionary *)snapshotRequestParameters
++ (void)setSnapshotMaxChildren:(int)maxChildren
 {
-  return FBSnapshotRequestParameters;
+  FBSetCustomParameterForElementSnapshot(FBSnapshotMaxChildrenKey, @(maxChildren));
+}
+
++ (int)snapshotMaxChildren
+{
+  return [FBGetCustomParameterForElementSnapshot(FBSnapshotMaxChildrenKey) intValue];
+}
+
++ (void)setShouldRespectSystemAlerts:(BOOL)value
+{
+  FBShouldRespectSystemAlerts = value;
+}
+
++ (BOOL)shouldRespectSystemAlerts
+{
+  return FBShouldRespectSystemAlerts;
 }
 
 + (void)setUseFirstMatch:(BOOL)enabled
@@ -376,16 +414,6 @@ static UIInterfaceOrientation FBScreenshotOrientation = UIInterfaceOrientationUn
   return FBShouldBoundElementsByIndex;
 }
 
-+ (void)setIncludeNonModalElements:(BOOL)isEnabled
-{
-  FBIncludeNonModalElements = isEnabled;
-}
-
-+ (BOOL)includeNonModalElements
-{
-  return FBIncludeNonModalElements;
-}
-
 + (void)setAcceptAlertButtonSelector:(NSString *)classChainSelector
 {
   FBAcceptAlertButtonSelector = classChainSelector;
@@ -404,6 +432,36 @@ static UIInterfaceOrientation FBScreenshotOrientation = UIInterfaceOrientationUn
 + (NSString *)dismissAlertButtonSelector
 {
   return FBDismissAlertButtonSelector;
+}
+
++ (void)setAutoClickAlertSelector:(NSString *)classChainSelector
+{
+  FBAutoClickAlertSelector = classChainSelector;
+}
+
++ (NSString *)autoClickAlertSelector
+{
+  return FBAutoClickAlertSelector;
+}
+
++ (void)setUseClearTextShortcut:(BOOL)enabled
+{
+  FBUseClearTextShortcut = enabled;
+}
+
++ (BOOL)useClearTextShortcut
+{
+  return FBUseClearTextShortcut;
+}
+
++ (BOOL)limitXpathContextScope
+{
+  return FBLimitXpathContextScope;
+}
+
++ (void)setLimitXpathContextScope:(BOOL)enabled
+{
+  FBLimitXpathContextScope = enabled;
 }
 
 #if !TARGET_OS_TV
@@ -448,9 +506,34 @@ static UIInterfaceOrientation FBScreenshotOrientation = UIInterfaceOrientationUn
       return @"landscapeLeft";
     case UIInterfaceOrientationUnknown:
       return @"auto";
+    default: break;
   }
 }
 #endif
+
++ (void)resetSessionSettings
+{
+  FBShouldTerminateApp = YES;
+  FBShouldUseCompactResponses = YES;
+  FBElementResponseAttributes = @"type,label";
+  FBMaxTypingFrequency = @([self defaultTypingFrequency]);
+  FBScreenshotQuality = 3;
+  FBShouldUseFirstMatch = NO;
+  FBShouldBoundElementsByIndex = NO;
+  FBAcceptAlertButtonSelector = @"";
+  FBDismissAlertButtonSelector = @"";
+  FBAutoClickAlertSelector = @"";
+  FBWaitForIdleTimeout = 10.;
+  FBAnimationCoolOffTimeout = 2.;
+  // 50 should be enough for the majority of the cases. The performance is acceptable for values up to 100.
+  FBSetCustomParameterForElementSnapshot(FBSnapshotMaxDepthKey, @50);
+  FBSetCustomParameterForElementSnapshot(FBSnapshotMaxChildrenKey, @INT_MAX);
+  FBUseClearTextShortcut = YES;
+  FBLimitXpathContextScope = YES;
+#if !TARGET_OS_TV
+  FBScreenshotOrientation = UIInterfaceOrientationUnknown;
+#endif
+}
 
 #pragma mark Private
 
@@ -560,6 +643,56 @@ static UIInterfaceOrientation FBScreenshotOrientation = UIInterfaceOrientationUn
     return settings.reduceMotionEnabled;
   }
   return NO;
+}
+
++ (void)setIncludeHittableInPageSource:(BOOL)enabled
+{
+  FBShouldIncludeHittableInPageSource = enabled;
+}
+
++ (BOOL)includeHittableInPageSource
+{
+  return FBShouldIncludeHittableInPageSource;
+}
+
++ (void)setIncludeNativeFrameInPageSource:(BOOL)enabled
+{
+  FBShouldIncludeNativeFrameInPageSource = enabled;
+}
+
++ (BOOL)includeNativeFrameInPageSource
+{
+  return FBShouldIncludeNativeFrameInPageSource;
+}
+
++ (void)setIncludeMinMaxValueInPageSource:(BOOL)enabled
+{
+  FBShouldIncludeMinMaxValueInPageSource = enabled;
+}
+
++ (BOOL)includeMinMaxValueInPageSource
+{
+  return FBShouldIncludeMinMaxValueInPageSource;
+}
+
++ (void)setIncludeCustomActionsInPageSource:(BOOL)enabled
+{
+  FBShouldIncludeCustomActionsInPageSource = enabled;
+}
+
++ (BOOL)includeCustomActionsInPageSource
+{
+  return FBShouldIncludeCustomActionsInPageSource;
+}
+
++ (void)setEnforceCustomSnapshots:(BOOL)enabled
+{
+  FBShouldEnforceCustomSnapshots = enabled;
+}
+
++ (BOOL)enforceCustomSnapshots
+{
+  return FBShouldEnforceCustomSnapshots;
 }
 
 @end

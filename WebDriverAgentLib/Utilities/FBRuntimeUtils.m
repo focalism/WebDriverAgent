@@ -3,8 +3,7 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "FBRuntimeUtils.h"
@@ -47,7 +46,7 @@ void *FBRetrieveSymbolFromBinary(const char *binary, const char *name)
 
 static NSString *sdkVersion = nil;
 static dispatch_once_t onceSdkVersionToken;
-NSString * _Nullable FBSDKVersion()
+NSString * _Nullable FBSDKVersion(void)
 {
   dispatch_once(&onceSdkVersionToken, ^{
     NSString *sdkName = [[NSBundle mainBundle] infoDictionary][@"DTSDKName"];

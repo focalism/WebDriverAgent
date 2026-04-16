@@ -3,14 +3,12 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import <XCTest/XCTest.h>
 
 #import "FBIntegrationTestCase.h"
-#import "FBApplication.h"
 #import "FBTestMacros.h"
 #import "FBMacros.h"
 #import "FBSession.h"
@@ -26,15 +24,13 @@
 @end
 
 
-static NSString *const SAFARI_BUNDLE_ID = @"com.apple.mobilesafari";
-
 @implementation FBSafariAlertIntegrationTests
 
 - (void)setUp
 {
   [super setUp];
-  self.session = [FBSession initWithApplication:FBApplication.fb_activeApplication];
-  [self.session launchApplicationWithBundleId:SAFARI_BUNDLE_ID
+  self.session = [FBSession initWithApplication:XCUIApplication.fb_activeApplication];
+  [self.session launchApplicationWithBundleId:FB_SAFARI_BUNDLE_ID
                       shouldWaitForQuiescence:nil
                                     arguments:nil
                                   environment:nil];
@@ -43,7 +39,7 @@ static NSString *const SAFARI_BUNDLE_ID = @"com.apple.mobilesafari";
 
 - (void)tearDown
 {
-  [self.session terminateApplicationWithBundleId:SAFARI_BUNDLE_ID];
+  [self.session terminateApplicationWithBundleId:FB_SAFARI_BUNDLE_ID];
 }
 
 - (void)disabled_testCanHandleSafariInputPrompt

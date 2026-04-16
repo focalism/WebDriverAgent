@@ -3,13 +3,10 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import <XCTest/XCTest.h>
-
-#import "FBApplication.h"
 
 extern NSString *const FBShowAlertButtonName;
 extern NSString *const FBShowSheetAlertButtonName;
@@ -22,7 +19,7 @@ extern NSString *const FBTapsCountLabelIdentifier;
  */
 @interface FBIntegrationTestCase : XCTestCase
 @property (nonatomic, strong, readonly) XCUIApplication *testedApplication;
-@property (nonatomic, strong, readonly) FBApplication *springboard;
+@property (nonatomic, strong, readonly) XCUIApplication *springboard;
 
 /**
  Launches application and resets side effects of testing like orientation etc.

@@ -3,8 +3,7 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "FBMathUtils.h"
@@ -46,35 +45,6 @@ BOOL FBRectFuzzyEqualToRect(CGRect rect1, CGRect rect2, CGFloat threshold)
 }
 
 #if !TARGET_OS_TV
-CGPoint FBInvertPointForApplication(CGPoint point, CGSize screenSize, UIInterfaceOrientation orientation)
-{
-  switch (orientation) {
-    case UIInterfaceOrientationUnknown:
-    case UIInterfaceOrientationPortrait:
-      return point;
-    case UIInterfaceOrientationPortraitUpsideDown:
-      return CGPointMake(screenSize.width - point.x, screenSize.height - point.y);
-    case UIInterfaceOrientationLandscapeLeft:
-      return CGPointMake(point.y, MAX(screenSize.width, screenSize.height) - point.x);
-    case UIInterfaceOrientationLandscapeRight:
-      return CGPointMake(MIN(screenSize.width, screenSize.height) - point.y, point.x);
-  }
-}
-
-CGPoint FBInvertOffsetForOrientation(CGPoint offset, UIInterfaceOrientation orientation)
-{
-  switch (orientation) {
-    case UIInterfaceOrientationUnknown:
-    case UIInterfaceOrientationPortrait:
-      return offset;
-    case UIInterfaceOrientationPortraitUpsideDown:
-      return CGPointMake(-offset.x, -offset.y);
-    case UIInterfaceOrientationLandscapeLeft:
-      return CGPointMake(offset.y, -offset.x);
-    case UIInterfaceOrientationLandscapeRight:
-      return CGPointMake(-offset.y, offset.x);
-  }
-}
 
 CGSize FBAdjustDimensionsForApplication(CGSize actualSize, UIInterfaceOrientation orientation)
 {

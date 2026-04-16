@@ -3,8 +3,7 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import <XCTest/XCTest.h>
@@ -44,7 +43,7 @@
   if (![pastItemsQuery.firstMatch waitForExistenceWithTimeout:2.0]) {
     XCTFail(@"No matched element named 'Paste'");
   }
-  XCUIElement *pasteItem = pastItemsQuery.fb_firstMatch;
+  XCUIElement *pasteItem = pastItemsQuery.firstMatch;
   XCTAssertNotNil(pasteItem);
   [pasteItem tap];
   FBAssertWaitTillBecomesTrue([textField.value isEqualToString:text]);

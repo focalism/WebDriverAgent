@@ -3,19 +3,18 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import <XCTest/XCTest.h>
 
 #import "FBAlert.h"
-#import "FBApplication.h"
 #import "FBTestMacros.h"
 #import "FBIntegrationTestCase.h"
 #import "FBConfiguration.h"
 #import "FBMacros.h"
 #import "FBRunLoopSpinner.h"
+#import "XCUIApplication+FBHelpers.h"
 #import "XCUIDevice+FBRotation.h"
 #import "XCUIElement.h"
 #import "XCUIElement+FBIsVisible.h"
@@ -30,7 +29,7 @@ NSString *const FBTapsCountLabelIdentifier = @"numberOfTapsLabel";
 
 @interface FBIntegrationTestCase ()
 @property (nonatomic, strong) XCUIApplication *testedApplication;
-@property (nonatomic, strong) FBApplication *springboard;
+@property (nonatomic, strong) XCUIApplication *springboard;
 @end
 
 @implementation FBIntegrationTestCase
@@ -46,7 +45,7 @@ NSString *const FBTapsCountLabelIdentifier = @"numberOfTapsLabel";
   [FBConfiguration disableApplicationUIInterruptionsHandling];
   [FBConfiguration disableScreenshots];
   self.continueAfterFailure = NO;
-  self.springboard = FBApplication.fb_systemApplication;
+  self.springboard = XCUIApplication.fb_systemApplication;
   self.testedApplication = [XCUIApplication new];
 }
 
@@ -91,10 +90,10 @@ NSString *const FBTapsCountLabelIdentifier = @"numberOfTapsLabel";
 {
   [[XCUIDevice sharedDevice] pressButton:XCUIDeviceButtonHome];
   [self.testedApplication fb_waitUntilStable];
-  FBAssertWaitTillBecomesTrue(FBApplication.fb_systemApplication.icons[@"Safari"].exists);
+  FBAssertWaitTillBecomesTrue(XCUIApplication.fb_systemApplication.icons[@"Safari"].exists);
   [[XCUIDevice sharedDevice] pressButton:XCUIDeviceButtonHome];
   [self.testedApplication fb_waitUntilStable];
-  FBAssertWaitTillBecomesTrue(FBApplication.fb_systemApplication.icons[@"Calendar"].firstMatch.fb_isVisible);
+  FBAssertWaitTillBecomesTrue(XCUIApplication.fb_systemApplication.icons[@"Calendar"].firstMatch.fb_isVisible);
 }
 
 - (void)goToSpringBoardExtras

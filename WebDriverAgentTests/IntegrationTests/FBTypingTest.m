@@ -3,8 +3,7 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import <XCTest/XCTest.h>
@@ -60,6 +59,10 @@
   XCTAssertTrue([textField fb_clearTextWithError:&error]);
   XCTAssertNil(error);
   XCTAssertEqualObjects(textField.value, @"");
+  XCTAssertTrue([textField fb_typeText:@"Happy typing" shouldClear:YES error:&error]);
+  XCTAssertTrue([textField fb_typeText:@"Happy typing 2" shouldClear:YES error:&error]);
+  XCTAssertEqualObjects(textField.value, @"Happy typing 2");
+  XCTAssertNil(error);
 }
 
 @end

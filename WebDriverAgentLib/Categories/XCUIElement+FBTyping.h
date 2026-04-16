@@ -3,13 +3,22 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import <XCTest/XCTest.h>
 
 NS_ASSUME_NONNULL_BEGIN
+
+/**
+ Types a text into the currently focused element.
+
+ @param text text that should be typed
+ @param typingSpeed Frequency of typing (letters per sec)
+ @param error If there is an error, upon return contains an NSError object that describes the problem.
+ @return YES if the operation succeeds, otherwise NO.
+ */
+BOOL FBTypeText(NSString *text, NSUInteger typingSpeed, NSError **error);
 
 @interface XCUIElement (FBTyping)
 

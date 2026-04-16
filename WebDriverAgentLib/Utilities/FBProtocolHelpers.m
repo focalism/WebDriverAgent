@@ -3,8 +3,7 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "FBProtocolHelpers.h"
@@ -20,12 +19,12 @@ static NSString *const ALWAYS_MATCH_KEY = @"alwaysMatch";
 static NSString *const FIRST_MATCH_KEY = @"firstMatch";
 
 
-NSDictionary *FBInsertElement(NSDictionary *dst, id element)
+NSDictionary<NSString *, id> *FBToElementDict(id element)
 {
-  NSMutableDictionary *result = dst.mutableCopy;
-  result[W3C_ELEMENT_KEY] = element;
-  result[JSONWP_ELEMENT_KEY] = element;
-  return result.copy;
+  return @{
+    W3C_ELEMENT_KEY: element,
+    JSONWP_ELEMENT_KEY: element
+  };
 }
 
 id FBExtractElement(NSDictionary *src)

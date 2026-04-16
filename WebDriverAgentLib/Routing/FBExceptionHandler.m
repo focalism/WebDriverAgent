@@ -3,8 +3,7 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "FBExceptionHandler.h"
@@ -24,7 +23,8 @@
     commandStatus = [FBCommandStatus noSuchDriverErrorWithMessage:exception.reason
                                                         traceback:traceback];
   } else if ([exception.name isEqualToString:FBInvalidArgumentException]
-             || [exception.name isEqualToString:FBElementAttributeUnknownException]) {
+             || [exception.name isEqualToString:FBElementAttributeUnknownException]
+             || [exception.name isEqualToString:FBApplicationMissingException]) {
     commandStatus = [FBCommandStatus invalidArgumentErrorWithMessage:exception.reason
                                                            traceback:traceback];
   } else if ([exception.name isEqualToString:FBApplicationCrashedException]
@@ -44,6 +44,9 @@
   } else if ([exception.name isEqualToString:FBTimeoutException]) {
     commandStatus = [FBCommandStatus timeoutErrorWithMessage:exception.reason
                                                    traceback:traceback];
+  } else if ([exception.name isEqualToString:FBSessionCreationException]) {
+    commandStatus = [FBCommandStatus sessionNotCreatedError:exception.reason
+                                                  traceback:traceback];
   } else {
     commandStatus = [FBCommandStatus unknownErrorWithMessage:exception.reason
                                                    traceback:traceback];

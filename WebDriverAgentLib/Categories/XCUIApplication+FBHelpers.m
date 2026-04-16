@@ -3,18 +3,19 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "XCUIApplication+FBHelpers.h"
 
+#import "FBActiveAppDetectionPoint.h"
 #import "FBElementTypeTransformer.h"
 #import "FBKeyboard.h"
 #import "FBLogger.h"
+#import "FBExceptions.h"
 #import "FBMacros.h"
 #import "FBMathUtils.h"
-#import "FBActiveAppDetectionPoint.h"
+#import "FBRunLoopSpinner.h"
 #import "FBXCodeCompatibility.h"
 #import "FBXPath.h"
 #import "FBXCAccessibilityElement.h"
@@ -22,18 +23,93 @@
 #import "FBXCElementSnapshotWrapper+Helpers.h"
 #import "FBXCAXClientProxy.h"
 #import "FBXMLGenerationOptions.h"
+#import "XCTestManager_ManagerInterface-Protocol.h"
+#import "XCTestPrivateSymbols.h"
+#import "XCTRunnerDaemonSession.h"
+#import "XCUIApplication.h"
+#import "XCUIApplicationImpl.h"
+#import "XCUIApplicationProcess.h"
 #import "XCUIDevice+FBHelpers.h"
+#import "XCUIElement.h"
 #import "XCUIElement+FBCaching.h"
 #import "XCUIElement+FBIsVisible.h"
 #import "XCUIElement+FBUtilities.h"
 #import "XCUIElement+FBWebDriverAttributes.h"
-#import "XCTestManager_ManagerInterface-Protocol.h"
-#import "XCTestPrivateSymbols.h"
-#import "XCTRunnerDaemonSession.h"
+#import "XCUIElementQuery.h"
+#import "FBElementHelpers.h"
 
-const static NSTimeInterval FBMinimumAppSwitchWait = 3.0;
 static NSString* const FBUnknownBundleId = @"unknown";
 
+static NSString* const FBExclusionAttributeFrame = @"frame";
+static NSString* const FBExclusionAttributeEnabled = @"enabled";
+static NSString* const FBExclusionAttributeVisible = @"visible";
+static NSString* const FBExclusionAttributeAccessible = @"accessible";
+static NSString* const FBExclusionAttributeFocused = @"focused";
+static NSString* const FBExclusionAttributePlaceholderValue = @"placeholderValue";
+static NSString* const FBExclusionAttributeNativeFrame = @"nativeFrame";
+static NSString* const FBExclusionAttributeTraits = @"traits";
+static NSString* const FBExclusionAttributeMinValue = @"minValue";
+static NSString* const FBExclusionAttributeMaxValue = @"maxValue";
+
+_Nullable id extractIssueProperty(id issue, NSString *propertyName) {
+  SEL selector = NSSelectorFromString(propertyName);
+  NSMethodSignature *methodSignature = [issue methodSignatureForSelector:selector];
+  if (nil == methodSignature) {
+    return nil;
+  }
+  NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:methodSignature];
+  [invocation setSelector:selector];
+  [invocation invokeWithTarget:issue];
+  id __unsafe_unretained result;
+  [invocation getReturnValue:&result];
+  return result;
+}
+
+NSDictionary<NSString *, NSNumber *> *auditTypeNamesToValues(void) {
+  static dispatch_once_t onceToken;
+  static NSDictionary *result;
+  dispatch_once(&onceToken, ^{
+    // https://developer.apple.com/documentation/xctest/xcuiaccessibilityaudittype?language=objc
+    result = @{
+      @"XCUIAccessibilityAuditTypeAction": @(1UL << 32),
+      @"XCUIAccessibilityAuditTypeAll": @(~0UL),
+      @"XCUIAccessibilityAuditTypeContrast": @(1UL << 0),
+      @"XCUIAccessibilityAuditTypeDynamicType": @(1UL << 16),
+      @"XCUIAccessibilityAuditTypeElementDetection": @(1UL << 1),
+      @"XCUIAccessibilityAuditTypeHitRegion": @(1UL << 2),
+      @"XCUIAccessibilityAuditTypeParentChild": @(1UL << 33),
+      @"XCUIAccessibilityAuditTypeSufficientElementDescription": @(1UL << 3),
+      @"XCUIAccessibilityAuditTypeTextClipped": @(1UL << 17),
+      @"XCUIAccessibilityAuditTypeTrait": @(1UL << 18),
+    };
+  });
+  return result;
+}
+
+NSDictionary<NSNumber *, NSString *> *auditTypeValuesToNames(void) {
+  static dispatch_once_t onceToken;
+  static NSDictionary *result;
+  dispatch_once(&onceToken, ^{
+    NSMutableDictionary *inverted = [NSMutableDictionary new];
+    [auditTypeNamesToValues() enumerateKeysAndObjectsUsingBlock:^(NSString* key, NSNumber *value, BOOL *stop) {
+      inverted[value] = key;
+    }];
+    result = inverted.copy;
+  });
+  return result;
+}
+
+NSDictionary<NSString *, NSString *> *customExclusionAttributesMap(void) {
+  static dispatch_once_t onceToken;
+  static NSDictionary *result;
+  dispatch_once(&onceToken, ^{
+    result = @{
+      FBExclusionAttributeVisible: FB_XCAXAIsVisibleAttributeName,
+      FBExclusionAttributeAccessible: FB_XCAXAIsElementAttributeName,
+    };
+  });
+  return result;
+}
 
 @implementation XCUIApplication (FBHelpers)
 
@@ -92,28 +168,33 @@ static NSString* const FBUnknownBundleId = @"unknown";
   if(![[XCUIDevice sharedDevice] fb_goToHomescreenWithError:error]) {
     return NO;
   }
-  [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:MAX(duration, FBMinimumAppSwitchWait)]];
-  [self fb_activate];
+  [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:MAX(duration, .0)]];
+  [self activate];
   return YES;
 }
 
 - (NSDictionary *)fb_tree
 {
-  id<FBXCElementSnapshot> snapshot = self.fb_isResolvedFromCache.boolValue
-    ? self.lastSnapshot
-    : [self fb_snapshotWithAllAttributesAndMaxDepth:nil];
-  return [self.class dictionaryForElement:snapshot recursive:YES];
+  return [self fb_tree:nil];
+}
+
+- (NSDictionary *)fb_tree:(nullable NSSet<NSString *> *)excludedAttributes
+{
+  id<FBXCElementSnapshot> snapshot = [self fb_standardSnapshot];
+  return [self.class dictionaryForElement:snapshot
+                                recursive:YES
+                       excludedAttributes:excludedAttributes];
 }
 
 - (NSDictionary *)fb_accessibilityTree
 {
-  id<FBXCElementSnapshot> snapshot = self.fb_isResolvedFromCache.boolValue
-    ? self.lastSnapshot
-    : [self fb_snapshotWithAllAttributesAndMaxDepth:nil];
+  id<FBXCElementSnapshot> snapshot = [self fb_standardSnapshot];
   return [self.class accessibilityInfoForElement:snapshot];
 }
 
-+ (NSDictionary *)dictionaryForElement:(id<FBXCElementSnapshot>)snapshot recursive:(BOOL)recursive
++ (NSDictionary *)dictionaryForElement:(id<FBXCElementSnapshot>)snapshot 
+                             recursive:(BOOL)recursive
+                    excludedAttributes:(nullable NSSet<NSString *> *)excludedAttributes
 {
   NSMutableDictionary *info = [[NSMutableDictionary alloc] init];
   info[@"type"] = [FBElementTypeTransformer shortStringWithElementType:snapshot.elementType];
@@ -123,13 +204,29 @@ static NSString* const FBUnknownBundleId = @"unknown";
   info[@"value"] = FBValueOrNull(wrappedSnapshot.wdValue);
   info[@"label"] = FBValueOrNull(wrappedSnapshot.wdLabel);
   info[@"rect"] = wrappedSnapshot.wdRect;
-  info[@"frame"] = NSStringFromCGRect(wrappedSnapshot.wdFrame);
-  info[@"isEnabled"] = [@([wrappedSnapshot isWDEnabled]) stringValue];
-  info[@"isVisible"] = [@([wrappedSnapshot isWDVisible]) stringValue];
-  info[@"isAccessible"] = [@([wrappedSnapshot isWDAccessible]) stringValue];
-#if TARGET_OS_TV
-  info[@"isFocused"] = [@([wrappedSnapshot isWDFocused]) stringValue];
-#endif
+  info[@"customActions"] = FBValueOrNull(wrappedSnapshot.wdCustomActions);
+  
+  NSDictionary<NSString *, NSString *(^)(void)> *attributeBlocks = [self fb_attributeBlockMapForWrappedSnapshot:wrappedSnapshot];
+
+  NSSet *nonPrefixedKeys = [NSSet setWithObjects:
+                            FBExclusionAttributeFrame,
+                            FBExclusionAttributePlaceholderValue,
+                            FBExclusionAttributeNativeFrame,
+                            FBExclusionAttributeTraits,
+                            FBExclusionAttributeMinValue,
+                            FBExclusionAttributeMaxValue,
+                            nil];
+
+  for (NSString *key in attributeBlocks) {
+      if (excludedAttributes == nil || ![excludedAttributes containsObject:key]) {
+          NSString *value = ((NSString * (^)(void))attributeBlocks[key])();
+          if ([nonPrefixedKeys containsObject:key]) {
+              info[key] = value;
+          } else {
+              info[[NSString stringWithFormat:@"is%@", [key capitalizedString]]] = value;
+          }
+      }
+  }
 
   if (!recursive) {
     return info.copy;
@@ -139,10 +236,67 @@ static NSString* const FBUnknownBundleId = @"unknown";
   if ([childElements count]) {
     info[@"children"] = [[NSMutableArray alloc] init];
     for (id<FBXCElementSnapshot> childSnapshot in childElements) {
-      [info[@"children"] addObject:[self dictionaryForElement:childSnapshot recursive:YES]];
+      @autoreleasepool {
+        [info[@"children"] addObject:[self dictionaryForElement:childSnapshot
+                                                      recursive:YES
+                                             excludedAttributes:excludedAttributes]];
+      }
     }
   }
   return info;
+}
+
+// Helper used by `dictionaryForElement:` to assemble attribute value blocks,
+// including both common attributes and conditionally included ones like placeholderValue.
++ (NSDictionary<NSString *, NSString *(^)(void)> *)fb_attributeBlockMapForWrappedSnapshot:(FBXCElementSnapshotWrapper *)wrappedSnapshot
+
+{
+  // Base attributes common to every element
+  NSMutableDictionary<NSString *, id(^)(void)> *blocks =
+  [@{
+    FBExclusionAttributeFrame: ^{
+    return NSStringFromCGRect(wrappedSnapshot.wdFrame);
+  },
+    FBExclusionAttributeNativeFrame: ^{
+    return NSStringFromCGRect(wrappedSnapshot.wdNativeFrame);
+  },
+    FBExclusionAttributeEnabled: ^{
+    return [@([wrappedSnapshot isWDEnabled]) stringValue];
+  },
+    FBExclusionAttributeVisible: ^{
+    return [@([wrappedSnapshot isWDVisible]) stringValue];
+  },
+    FBExclusionAttributeAccessible: ^{
+    return [@([wrappedSnapshot isWDAccessible]) stringValue];
+  },
+    FBExclusionAttributeFocused: ^{
+    return [@([wrappedSnapshot isWDFocused]) stringValue];
+  },
+    FBExclusionAttributeTraits: ^{
+    return wrappedSnapshot.wdTraits;
+  }
+  } mutableCopy];
+  
+  XCUIElementType elementType = wrappedSnapshot.elementType;
+  
+  // Text-input placeholder (only for elements that support inner text)
+  if (FBDoesElementSupportInnerText(elementType)) {
+    blocks[FBExclusionAttributePlaceholderValue] = ^{
+      return (NSString *)FBValueOrNull(wrappedSnapshot.wdPlaceholderValue);
+    };
+  }
+  
+  // Only for elements that support min/max value
+  if (FBDoesElementSupportMinMaxValue(elementType)) {
+    blocks[FBExclusionAttributeMinValue] = ^{
+      return wrappedSnapshot.wdMinValue;
+    };
+    blocks[FBExclusionAttributeMaxValue] = ^{
+      return wrappedSnapshot.wdMaxValue;
+    };
+  }
+  
+  return [blocks copy];
 }
 
 + (NSDictionary *)accessibilityInfoForElement:(id<FBXCElementSnapshot>)snapshot
@@ -161,9 +315,11 @@ static NSString* const FBUnknownBundleId = @"unknown";
   } else {
     NSMutableArray *children = [[NSMutableArray alloc] init];
     for (id<FBXCElementSnapshot> childSnapshot in snapshot.children) {
-      NSDictionary *childInfo = [self accessibilityInfoForElement:childSnapshot];
-      if ([childInfo count]) {
-        [children addObject: childInfo];
+      @autoreleasepool {
+        NSDictionary *childInfo = [self accessibilityInfoForElement:childSnapshot];
+        if ([childInfo count]) {
+          [children addObject: childInfo];
+        }
       }
     }
     if ([children count]) {
@@ -193,7 +349,7 @@ static NSString* const FBUnknownBundleId = @"unknown";
 - (NSString *)fb_descriptionRepresentation
 {
   NSMutableArray<NSString *> *childrenDescriptions = [NSMutableArray array];
-  for (XCUIElement *child in [self.fb_query childrenMatchingType:XCUIElementTypeAny].allElementsBoundByAccessibilityElement) {
+  for (XCUIElement *child in [self.fb_query childrenMatchingType:XCUIElementTypeAny].allElementsBoundByIndex) {
     [childrenDescriptions addObject:child.debugDescription];
   }
   // debugDescription property of XCUIApplication instance shows descendants addresses in memory
@@ -259,7 +415,7 @@ static NSString* const FBUnknownBundleId = @"unknown";
           continue;
         }
 
-        [matchedKey fb_tapWithError:nil];
+        [matchedKey tap];
         if (isKeyboardInvisible()) {
           return YES;
         }
@@ -272,7 +428,7 @@ static NSString* const FBUnknownBundleId = @"unknown";
                                     @[@(XCUIElementTypeKey), @(XCUIElementTypeButton)]];
     NSArray *matchedKeys = findMatchingKeys(searchPredicate);
     if (matchedKeys.count > 0) {
-      [matchedKeys[matchedKeys.count - 1] fb_tapWithError:nil];
+      [matchedKeys[matchedKeys.count - 1] tap];
     }
   }
 #endif
@@ -282,6 +438,208 @@ static NSString* const FBUnknownBundleId = @"unknown";
            timeoutErrorMessage:errorDescription]
           spinUntilTrue:isKeyboardInvisible
           error:error];
+}
+
+- (NSArray<NSDictionary<NSString *, NSString*> *> *)fb_performAccessibilityAuditWithAuditTypesSet:(NSSet<NSString *> *)auditTypes
+                                                                                            error:(NSError **)error;
+{
+  uint64_t numTypes = 0;
+  NSDictionary *namesMap = auditTypeNamesToValues();
+  for (NSString *value in auditTypes) {
+    NSNumber *typeValue = namesMap[value];
+    if (nil == typeValue) {
+      NSString *reason = [NSString stringWithFormat:@"Audit type value '%@' is not known. Only the following audit types are supported: %@", value, namesMap.allKeys];
+      @throw [NSException exceptionWithName:FBInvalidArgumentException reason:reason userInfo:@{}];
+    }
+    numTypes |= [typeValue unsignedLongLongValue];
+  }
+  return [self fb_performAccessibilityAuditWithAuditTypes:numTypes error:error];
+}
+
+- (NSArray<NSDictionary<NSString *, NSString*> *> *)fb_performAccessibilityAuditWithAuditTypes:(uint64_t)auditTypes
+                                                                                         error:(NSError **)error;
+{
+  SEL selector = NSSelectorFromString(@"performAccessibilityAuditWithAuditTypes:issueHandler:error:");
+  if (![self respondsToSelector:selector]) {
+    [[[FBErrorBuilder alloc]
+      withDescription:@"Accessibility audit is only supported since iOS 17/Xcode 15"]
+     buildError:error];
+    return nil;
+  }
+
+  // These custom attributes could take too long to fetch, thus excluded
+  NSSet *customAttributesToExclude = [NSSet setWithArray:[customExclusionAttributesMap() allKeys]];
+  NSMutableArray<NSDictionary *> *resultArray = [NSMutableArray array];
+  NSMethodSignature *methodSignature = [self methodSignatureForSelector:selector];
+  NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:methodSignature];
+  [invocation setSelector:selector];
+  [invocation setArgument:&auditTypes atIndex:2];
+  BOOL (^issueHandler)(id) = ^BOOL(id issue) {
+    @autoreleasepool {
+      NSString *auditType = @"";
+      NSDictionary *valuesToNamesMap = auditTypeValuesToNames();
+      NSNumber *auditTypeValue = [issue valueForKey:@"auditType"];
+      if (nil != auditTypeValue) {
+        auditType = valuesToNamesMap[auditTypeValue] ?: [auditTypeValue stringValue];
+      }
+      
+      id extractedElement = extractIssueProperty(issue, @"element");
+      
+      id<FBXCElementSnapshot> elementSnapshot = [extractedElement fb_cachedSnapshot] ?: [extractedElement fb_standardSnapshot];
+      NSDictionary *elementAttributes = elementSnapshot
+      ? [self.class dictionaryForElement:elementSnapshot
+                               recursive:NO
+                      excludedAttributes:customAttributesToExclude]
+      : @{};
+      
+      [resultArray addObject:@{
+        @"detailedDescription": extractIssueProperty(issue, @"detailedDescription") ?: @"",
+        @"compactDescription": extractIssueProperty(issue, @"compactDescription") ?: @"",
+        @"auditType": auditType,
+        @"element": [extractedElement description] ?: @"",
+        @"elementDescription": [extractedElement debugDescription] ?: @"",
+        @"elementAttributes": elementAttributes ?: @{},
+      }];
+      return YES;
+    }
+  };
+  [invocation setArgument:&issueHandler atIndex:3];
+  [invocation setArgument:&error atIndex:4];
+  [invocation invokeWithTarget:self];
+  BOOL isSuccessful;
+  [invocation getReturnValue:&isSuccessful];
+  return isSuccessful ? resultArray.copy : nil;
+}
+
++ (instancetype)fb_activeApplication
+{
+  return [self fb_activeApplicationWithDefaultBundleId:nil];
+}
+
++ (NSArray<XCUIApplication *> *)fb_activeApplications
+{
+  NSArray<id<FBXCAccessibilityElement>> *activeApplicationElements = [FBXCAXClientProxy.sharedClient activeApplications];
+  NSMutableArray<XCUIApplication *> *result = [NSMutableArray array];
+  if (activeApplicationElements.count > 0) {
+    for (id<FBXCAccessibilityElement> applicationElement in activeApplicationElements) {
+      XCUIApplication *app = [XCUIApplication fb_applicationWithPID:applicationElement.processIdentifier];
+      if (nil != app) {
+        [result addObject:app];
+      }
+    }
+  }
+  return result.count > 0 ? result.copy : @[self.class.fb_systemApplication];
+}
+
++ (instancetype)fb_activeApplicationWithDefaultBundleId:(nullable NSString *)bundleId
+{
+  NSArray<id<FBXCAccessibilityElement>> *activeApplicationElements = [FBXCAXClientProxy.sharedClient activeApplications];
+  id<FBXCAccessibilityElement> activeApplicationElement = nil;
+  id<FBXCAccessibilityElement> currentElement = nil;
+  if (nil != bundleId) {
+    currentElement = FBActiveAppDetectionPoint.sharedInstance.axElement;
+    if (nil != currentElement) {
+      NSArray<NSDictionary *> *appInfos = [self fb_appsInfoWithAxElements:@[currentElement]];
+      [FBLogger logFmt:@"Detected on-screen application: %@", appInfos.firstObject[@"bundleId"]];
+      if ([[appInfos.firstObject objectForKey:@"bundleId"] isEqualToString:(id)bundleId]) {
+        activeApplicationElement = currentElement;
+      }
+    }
+  }
+  if (nil == activeApplicationElement && activeApplicationElements.count > 1) {
+    if (nil != bundleId) {
+      NSArray<NSDictionary *> *appInfos = [self fb_appsInfoWithAxElements:activeApplicationElements];
+      NSMutableArray<NSString *> *bundleIds = [NSMutableArray array];
+      for (NSDictionary *appInfo in appInfos) {
+        [bundleIds addObject:(NSString *)appInfo[@"bundleId"]];
+      }
+      [FBLogger logFmt:@"Detected system active application(s): %@", bundleIds];
+      // Try to select the desired application first
+      for (NSUInteger appIdx = 0; appIdx < appInfos.count; appIdx++) {
+        if ([[[appInfos objectAtIndex:appIdx] objectForKey:@"bundleId"] isEqualToString:(id)bundleId]) {
+          activeApplicationElement = [activeApplicationElements objectAtIndex:appIdx];
+          break;
+        }
+      }
+    }
+    // Fall back to the "normal" algorithm if the desired application is either
+    // not set or is not active
+    if (nil == activeApplicationElement) {
+      if (nil == currentElement) {
+        currentElement = FBActiveAppDetectionPoint.sharedInstance.axElement;
+      }
+      if (nil == currentElement) {
+        [FBLogger log:@"Cannot precisely detect the current application. Will use the system's recently active one"];
+        if (nil == bundleId) {
+          [FBLogger log:@"Consider changing the 'defaultActiveApplication' setting to the bundle identifier of the desired application under test"];
+        }
+      } else {
+        for (id<FBXCAccessibilityElement> appElement in activeApplicationElements) {
+          if (appElement.processIdentifier == currentElement.processIdentifier) {
+            activeApplicationElement = appElement;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  if (nil != activeApplicationElement) {
+    XCUIApplication *application = [XCUIApplication fb_applicationWithPID:activeApplicationElement.processIdentifier];
+    if (nil != application) {
+      return application;
+    }
+    [FBLogger log:@"Cannot translate the active process identifier into an application object"];
+  }
+
+  if (activeApplicationElements.count > 0) {
+    [FBLogger logFmt:@"Getting the most recent active application (out of %@ total items)", @(activeApplicationElements.count)];
+    for (id<FBXCAccessibilityElement> appElement in activeApplicationElements) {
+      XCUIApplication *application = [XCUIApplication fb_applicationWithPID:appElement.processIdentifier];
+      if (nil != application) {
+        return application;
+      }
+    }
+  }
+
+  [FBLogger log:@"Cannot retrieve any active applications. Assuming the system application is the active one"];
+  return [self fb_systemApplication];
+}
+
++ (instancetype)fb_systemApplication
+{
+  return [self fb_applicationWithPID:
+                           [[FBXCAXClientProxy.sharedClient systemApplication] processIdentifier]];
+}
+
++ (instancetype)fb_applicationWithPID:(pid_t)processID
+{
+  return [FBXCAXClientProxy.sharedClient monitoredApplicationWithProcessIdentifier:processID];
+}
+
++ (BOOL)fb_switchToSystemApplicationWithError:(NSError **)error
+{
+  XCUIApplication *systemApp = self.fb_systemApplication;
+  @try {
+    if (systemApp.running) {
+      [systemApp activate];
+    } else {
+      [systemApp launch];
+    }
+  } @catch (NSException *e) {
+    return [[[FBErrorBuilder alloc]
+             withDescription:nil == e ? @"Cannot open the home screen" : e.reason]
+            buildError:error];
+  }
+  return YES;
+}
+
+- (BOOL)fb_isSameAppAs:(nullable XCUIApplication *)otherApp
+{
+  if (nil == otherApp) {
+    return NO;
+  }
+  return self == otherApp || [self.bundleID isEqualToString:(NSString *)otherApp.bundleID];
 }
 
 @end

@@ -3,14 +3,12 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "FBTVNavigationTracker.h"
 #import "FBTVNavigationTracker-Private.h"
 
-#import "FBApplication.h"
 #import "FBMathUtils.h"
 #import "XCUIElement+FBCaching.h"
 #import "XCUIElement+FBUtilities.h"
@@ -58,9 +56,7 @@
   self = [super init];
   if (self) {
     _targetElement = targetElement;
-    CGRect frame = targetElement.fb_isResolvedFromCache.boolValue
-      ? [FBXCElementSnapshotWrapper ensureWrapped:targetElement.lastSnapshot].wdFrame
-      : targetElement.wdFrame;
+    CGRect frame = targetElement.wdFrame;
     _targetCenter = FBRectGetCenter(frame);
     _navigationItems = [NSMutableDictionary dictionary];
   }
@@ -69,7 +65,7 @@
 
 - (FBTVDirection)directionToFocusedElement
 {
-  XCUIElement *focused = FBApplication.fb_activeApplication.fb_focusedElement;
+  XCUIElement *focused = XCUIApplication.fb_activeApplication.fb_focusedElement;
 
   CGPoint focusedCenter = FBRectGetCenter(focused.wdFrame);
   FBTVNavigationItem *item = [self navigationItemWithElement:focused];

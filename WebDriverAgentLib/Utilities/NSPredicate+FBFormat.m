@@ -3,8 +3,7 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "NSPredicate+FBFormat.h"
@@ -52,11 +51,17 @@
 
 + (instancetype)fb_snapshotBlockPredicateWithPredicate:(NSPredicate *)input
 {
+  if ([NSStringFromClass(input.class) isEqualToString:@"NSBlockPredicate"]) {
+    return input;
+  }
+
   NSPredicate *wdPredicate = [self.class fb_formatSearchPredicate:input];
   return [NSPredicate predicateWithBlock:^BOOL(id evaluatedObject,
                                                NSDictionary<NSString *,id> * _Nullable bindings) {
-    FBXCElementSnapshotWrapper *wrappedSnapshot = [FBXCElementSnapshotWrapper ensureWrapped:evaluatedObject];
-    return [wdPredicate evaluateWithObject:wrappedSnapshot];
+    @autoreleasepool {
+      FBXCElementSnapshotWrapper *wrappedSnapshot = [FBXCElementSnapshotWrapper ensureWrapped:evaluatedObject];
+      return [wdPredicate evaluateWithObject:wrappedSnapshot];
+    }
   }];
 }
 

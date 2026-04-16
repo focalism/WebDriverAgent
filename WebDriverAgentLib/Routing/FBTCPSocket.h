@@ -3,8 +3,7 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "GCDAsyncSocket.h"
@@ -39,7 +38,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface FBTCPSocket : NSObject
 
-@property (nullable, nonatomic) id<FBTCPSocketDelegate> delegate;
+#if __has_feature(objc_arc_weak)
+@property (nullable, nonatomic, weak) id<FBTCPSocketDelegate> delegate;
+#else
+@property (nullable, nonatomic, assign) id<FBTCPSocketDelegate> delegate;
+#endif
 
 /**
  Creates TCP socket isntance which is going to be started on the specified port

@@ -3,8 +3,7 @@
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import <XCTest/XCTest.h>
@@ -13,6 +12,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 /*! Exception used to notify about missing session */
 extern NSString *const FBSessionDoesNotExistException;
+
+/*! Exception used to notify about session creation issues */
+extern NSString *const FBSessionCreationException;
 
 /*! Exception used to notify about application deadlock */
 extern NSString *const FBApplicationDeadlockDetectedException;
@@ -48,5 +50,11 @@ extern NSString *const FBClassChainQueryParseException;
 
 /*! Exception used to notify about application crash */
 extern NSString *const FBApplicationCrashedException;
+
+/*! Exception used to notify about the application is not installed  */
+extern NSString *const FBApplicationMissingException;
+
+/*! Exception used to notify about WDA incompatibility with the current platform version */
+extern NSString *const FBIncompatibleWdaException;
 
 NS_ASSUME_NONNULL_END
