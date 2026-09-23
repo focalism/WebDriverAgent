@@ -51,7 +51,8 @@
 {
   return
   @[
-    [[FBRoute GET:@"/window/size"] respondWithTarget:self action:@selector(handleGetWindowSizeWithNoSession:)],
+    [[[FBRoute GET:@"/window/size"] withoutSession] respondWithTarget:self action:@selector(handleGetWindowSizeWithNoSession:)],
+    [[FBRoute GET:@"/window/size"] respondWithTarget:self action:@selector(handleGetWindowSize:)],
     [[FBRoute GET:@"/window/rect"] respondWithTarget:self action:@selector(handleGetWindowSize:)],
     [[FBRoute GET:@"/element/:uuid/enabled"] respondWithTarget:self action:@selector(handleGetEnabled:)],
     [[FBRoute GET:@"/element/:uuid/rect"] respondWithTarget:self action:@selector(handleGetRect:)],
@@ -518,14 +519,6 @@
 {
   NSString *textToType = [request.arguments[@"value"] componentsJoinedByString:@""];
   NSUInteger frequency = [request.arguments[@"frequency"] unsignedIntegerValue] ?: [FBConfiguration maxTypingFrequency];
-<<<<<<< HEAD
-//  if (![FBKeyboard waitUntilVisibleForApplication:request.session.activeApplication
-//                                          timeout:1
-//                                            error:nil]) {
-//    [FBLogger log:@"The on-screen keyboard seems to not exist. Continuing with typing anyway"];
-//  }
-=======
->>>>>>> upstream/master
   NSError *error;
   if (!FBTypeText(textToType, frequency, &error)) {
     return FBResponseWithStatus([FBCommandStatus invalidElementStateErrorWithMessage:error.description
@@ -578,7 +571,6 @@
   });
 }
 
-<<<<<<< HEAD
 + (id<FBResponsePayload>)handleGetWindowSizeWithNoSession:(FBRouteRequest *)request
   {
     CGSize screenSize = [UIScreen mainScreen].bounds.size;
@@ -587,26 +579,6 @@
       @"height": @(screenSize.height),
     });
   }
-=======
-
-+ (id<FBResponsePayload>)handleGetWindowRect:(FBRouteRequest *)request
-{
-  XCUIApplication *app = request.session.activeApplication ?: XCUIApplication.fb_activeApplication;
-
-  CGRect frame = app.wdFrame;
-#if TARGET_OS_TV
-  CGSize screenSize = frame.size;
-#else
-  CGSize screenSize = FBAdjustDimensionsForApplication(frame.size, app.interfaceOrientation);
-#endif
-  return FBResponseWithObject(@{
-    @"x": @(frame.origin.x),
-    @"y": @(frame.origin.y),
-    @"width": @(screenSize.width),
-    @"height": @(screenSize.height),
-  });
-}
->>>>>>> upstream/master
 
 + (id<FBResponsePayload>)handleElementScreenshot:(FBRouteRequest *)request
 {
