@@ -286,6 +286,8 @@
   NSMutableDictionary *buildInfo = [NSMutableDictionary dictionaryWithDictionary:@{
     @"time" : [self.class buildTimestamp],
     @"productBundleIdentifier" : productBundleIdentifier,
+    // fork: 恒为 YES, 标识当前实例由本自定义分支构建, 而非 Appium 官方构建
+    @"custom" : @YES,
   }];
   NSString *upgradeTimestamp = NSProcessInfo.processInfo.environment[@"UPGRADE_TIMESTAMP"];
   if (nil != upgradeTimestamp && upgradeTimestamp.length > 0) {
