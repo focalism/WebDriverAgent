@@ -518,13 +518,16 @@ static BOOL FBShouldEnforceCustomSnapshots = NO;
   FBElementResponseAttributes = @"type,label";
   FBMaxTypingFrequency = @([self defaultTypingFrequency]);
   FBScreenshotQuality = 3;
-  FBShouldUseFirstMatch = NO;
+  // fork: 有意偏离 upstream 默认值(提速), 合并 upstream 时请勿还原为 NO
+  FBShouldUseFirstMatch = YES;
   FBShouldBoundElementsByIndex = NO;
   FBAcceptAlertButtonSelector = @"";
   FBDismissAlertButtonSelector = @"";
   FBAutoClickAlertSelector = @"";
-  FBWaitForIdleTimeout = 10.;
-  FBAnimationCoolOffTimeout = 2.;
+  // fork: 同上, upstream 默认为 10.
+  FBWaitForIdleTimeout = 0.;
+  // fork: 同上, upstream 默认为 2.
+  FBAnimationCoolOffTimeout = 0.;
   // 50 should be enough for the majority of the cases. The performance is acceptable for values up to 100.
   FBSetCustomParameterForElementSnapshot(FBSnapshotMaxDepthKey, @50);
   FBSetCustomParameterForElementSnapshot(FBSnapshotMaxChildrenKey, @INT_MAX);

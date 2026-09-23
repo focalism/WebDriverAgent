@@ -27,6 +27,9 @@ xcuserdata
 *.xcuserstate
 *.xcscmblueprint
 
+## 本机签名配置（各人不同，不入库）
+Configurations/Local.xcconfig
+
 ## Obj-C/Swift specific
 *.hmap
 *.ipa

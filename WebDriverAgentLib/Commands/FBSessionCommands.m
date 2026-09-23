@@ -558,6 +558,7 @@
 
 + (NSDictionary *)currentCapabilities
 {
+  XCUIApplication *application = [FBSession activeSession].activeApplication;
   return
   @{
     @"browserName":  [NSNull null],

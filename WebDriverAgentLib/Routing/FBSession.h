@@ -24,7 +24,7 @@ extern NSString* const FB_SAFARI_BUNDLE_ID;
 /*! Application tested during that session */
 @property (nonatomic, readonly) XCUIApplication *activeApplication;
 
-@property (nonatomic) FBApplication *tempApplication;
+@property (nonatomic) XCUIApplication *tempApplication;
 
 /*! Session's identifier */
 @property (nonatomic, readonly) NSString *identifier;
